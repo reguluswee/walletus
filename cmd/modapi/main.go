@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	router "github.com/reguluswee/walletus/cmd/modapi/router"
 	"github.com/reguluswee/walletus/common/config"
 	"github.com/reguluswee/walletus/common/log"
-	router "github.com/reguluswee/walletus/modapi/router"
 )
 
 func main() {

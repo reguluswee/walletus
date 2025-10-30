@@ -7,14 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/reguluswee/walletus/modapi/security"
+	"github.com/reguluswee/walletus/cmd/modapi/security"
 
+	"github.com/reguluswee/walletus/cmd/modapi/codes"
 	"github.com/reguluswee/walletus/common/log"
 	"github.com/reguluswee/walletus/common/model"
 	"github.com/reguluswee/walletus/common/system"
-	"github.com/reguluswee/walletus/modapi/codes"
 
-	"github.com/reguluswee/walletus/modapi/common"
+	"github.com/reguluswee/walletus/cmd/modapi/common"
 
 	"github.com/gin-gonic/gin"
 )

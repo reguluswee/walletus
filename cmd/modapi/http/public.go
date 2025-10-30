@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/reguluswee/walletus/modapi/codes"
-	"github.com/reguluswee/walletus/modapi/common"
+	"github.com/reguluswee/walletus/cmd/modapi/codes"
+	"github.com/reguluswee/walletus/cmd/modapi/common"
 )
 
 func Public(c *gin.Context) {
