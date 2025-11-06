@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/reguluswee/walletus/modapi/codes"
+	"github.com/reguluswee/walletus/cmd/modapi/codes"
 )
 
 type SysChannel struct {
