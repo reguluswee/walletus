@@ -11,3 +11,11 @@ type TenantCreateRequest struct {
 	UniqueID string `json:"unique_id"`
 	Callback string `json:"call_back"`
 }
+
+type WalletBalanceQueryRequest struct {
+	TenantID  uint64 `json:"tenant_id"`
+	AddressID uint64 `json:"address_id"`
+	Address   string `json:"address"`
+	Chain     string `json:"chain"`
+	Token     string `json:"token"`
+}

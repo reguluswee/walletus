@@ -40,7 +40,7 @@ func WalletCreate(c *gin.Context) {
 		return
 	}
 
-	addr, err := service.WalletCreate(request, tenant)
+	tenantAddrId, addr, err := service.WalletCreate(request, tenant)
 	if err != nil {
 		res.Code = codes.CODE_ERR_UNKNOWN
 		res.Msg = err.Error()
@@ -49,9 +49,28 @@ func WalletCreate(c *gin.Context) {
 	}
 
 	res.Data = gin.H{
-		"address": addr,
-		"chain":   request.Chain,
+		"address_id": tenantAddrId,
+		"address":    addr,
+		"chain":      request.Chain,
 	}
 
 	c.JSON(http.StatusOK, res)
+}
+
+func WalletBalanceQuery(c *gin.Context) {
+	var request request.WalletBalanceQueryRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, common.Response{
+			Code:      codes.CODE_ERR_REQFORMAT,
+			Msg:       "invalid request",
+			Data:      nil,
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+	res := common.Response{}
+	res.Timestamp = time.Now().Unix()
+
+	res.Code = codes.CODE_SUCCESS
+	res.Msg = "success"
 }

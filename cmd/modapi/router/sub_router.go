@@ -14,5 +14,5 @@ func SubRouters(e *gin.RouterGroup) {
 	homeGroup.POST("/tenant/update", http.TenantCreate)
 
 	homeGroup.POST("/was/create", http.WalletCreate)
-
+	homeGroup.POST("/was/balance/query", http.WalletBalanceQuery)
 }
