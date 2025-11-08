@@ -90,9 +90,6 @@ func GenerateMasterXprv() (EncMaster, error) {
 
 	masterXprv := master.String()
 
-	fmt.Println("mnemonic:", mnemonic)
-	fmt.Println("master xprv:", masterXprv)
-
 	// === 2) 用 Argon2id + AES-GCM 加密 master xprv，得到 enc_master_xprv / kdf_params ===
 	enc = encryptMasterXprv([]byte(masterXprv), []byte(tenantSecretPassword))
 	fmt.Println("enc_master_xprv:", enc.EncMasterXprv)

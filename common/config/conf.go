@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/joho/godotenv"
 	system "github.com/reguluswee/walletus/common/log"
 
 	"github.com/spf13/viper"
@@ -162,17 +163,28 @@ func findProjectRoot(currentDir, rootIndicator string) (string, error) {
 
 func init() {
 	var confFilePath string
+	_, filename, _, _ := runtime.Caller(0)
+	testDir := filepath.Dir(filename)
+	confFilePath, _ = findProjectRoot(testDir, "__mark__")
+
+	err := godotenv.Load(confFilePath + "/.env")
+	if err != nil {
+		if len(confFilePath) > 0 {
+			err = godotenv.Load(confFilePath + "/.env")
+		}
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
 
 	if configFilePathFromEnv := os.Getenv("DALINK_GO_CONFIG_PATH"); configFilePathFromEnv != "" {
 		confFilePath = configFilePathFromEnv
 	} else {
-		_, filename, _, _ := runtime.Caller(0)
-		testDir := filepath.Dir(filename)
-		confFilePath, _ = findProjectRoot(testDir, "__mark__")
 		if len(confFilePath) > 0 {
-			confFilePath += "/config/dev.yml"
+			confFilePath += "/common/config/dev.yml"
 		}
 	}
+
 	if len(confFilePath) == 0 {
 		log.Fatal("System root directory setting error.")
 	}
@@ -181,7 +193,7 @@ func init() {
 	viper.SetConfigFile(confFilePath)
 
 	viper.SetConfigType("yml")
-	err := viper.ReadInConfig()
+	err = viper.ReadInConfig()
 	if err != nil {
 		log.Fatalf("Unable to read configuration file: %s", err)
 	}
@@ -189,6 +201,20 @@ func init() {
 	err = viper.Unmarshal(&systemConfig)
 	if err != nil {
 		log.Fatalf("Unable to parse configuration: %s", err)
+	}
+	if len(systemConfig.Database.Password) == 0 {
+		dbp := os.Getenv("DATABASE_PWD")
+		log.Println("reset db password:", dbp)
+		systemConfig.Database.Password = dbp
+	}
+	if systemConfig.Database.Port == 0 {
+		dbp := os.Getenv("DATABASE_PORT")
+		log.Println("reset db port:", dbp)
+		port, err := strconv.Atoi(dbp)
+		if err != nil {
+			log.Fatalf("invalid DATABASE.PORT value: %v", err)
+		}
+		systemConfig.Database.Port = port
 	}
 	initRpcs(systemConfig.Chain)
 

@@ -42,7 +42,7 @@ func TestGenerateMasterXprv(t *testing.T) {
 		db.Save(&model.TenantAddress{
 			TenantID:      tenant.ID,
 			TenantChainID: tenantChainETH.ID,
-			AddressIndex:  uint64(i),
+			AddressIndex:  uint32(i),
 			AddressVal:    addr,
 			DerivedPath:   path,
 		})
@@ -65,7 +65,7 @@ func TestGenerateMasterXprv(t *testing.T) {
 		db.Save(&model.TenantAddress{
 			TenantID:      tenant.ID,
 			TenantChainID: tenantChainTRON.ID,
-			AddressIndex:  uint64(i),
+			AddressIndex:  uint32(i),
 			AddressVal:    addr,
 			DerivedPath:   path,
 		})
