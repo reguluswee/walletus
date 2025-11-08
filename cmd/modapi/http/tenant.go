@@ -1,20 +1,21 @@
 package http
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/reguluswee/walletus/cmd/modapi/common"
 	"github.com/reguluswee/walletus/cmd/modapi/request"
-	"github.com/reguluswee/walletus/cmd/modapi/service"
+	"github.com/reguluswee/walletus/common/bip"
 	"github.com/reguluswee/walletus/common/codes"
 	"github.com/reguluswee/walletus/common/model"
 	"github.com/reguluswee/walletus/common/system"
 )
 
-func WalletCreate(c *gin.Context) {
-	var request request.WalletCreateRequest
+func TenantCreate(c *gin.Context) {
+	var request request.TenantCreateRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, common.Response{
 			Code:      codes.CODE_ERR_REQFORMAT,
@@ -32,25 +33,38 @@ func WalletCreate(c *gin.Context) {
 
 	var db = system.GetDb()
 	var tenant model.Tenant
-	db.Where("id = ?", request.TenantID).First(&tenant)
-	if tenant.ID == 0 {
-		res.Code = codes.CODE_ERR_OBJ_NOT_FOUND
-		res.Msg = "tenant not found"
+	db.Where("unique_id = ?", request.UniqueID).First(&tenant)
+	if tenant.ID > 0 {
+		res.Code = codes.CODE_ERR_EXIST_OBJ
+		res.Msg = "tenant unique id existed"
 		c.JSON(http.StatusOK, res)
 		return
 	}
 
-	addr, err := service.WalletCreate(request, tenant)
+	enc, err := bip.GenerateMasterXprv()
 	if err != nil {
 		res.Code = codes.CODE_ERR_UNKNOWN
-		res.Msg = err.Error()
+		res.Msg = "tenant creation error: " + err.Error()
 		c.JSON(http.StatusOK, res)
 		return
 	}
 
+	kdfBytes, _ := json.Marshal(enc.KDF)
+
+	tenant = model.Tenant{
+		Name:          request.Name,
+		UniqueID:      request.UniqueID,
+		AddTime:       time.Now(),
+		EncMasterXprv: enc.EncMasterXprv,
+		KdfParams:     string(kdfBytes),
+		Version:       "1",
+	}
+
+	db.Save(&tenant)
+
 	res.Data = gin.H{
-		"address": addr,
-		"chain":   request.Chain,
+		"tenant_id":        tenant.ID,
+		"tenant_unique_id": tenant.UniqueID,
 	}
 
 	c.JSON(http.StatusOK, res)

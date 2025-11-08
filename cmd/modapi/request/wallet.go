@@ -5,3 +5,8 @@ type WalletCreateRequest struct {
 	UniqueID uint32 `json:"unique_id"`
 	Chain    string `json:"chain"`
 }
+
+type TenantCreateRequest struct {
+	Name     string `json:"name"`
+	UniqueID string `json:"unique_id"`
+}
