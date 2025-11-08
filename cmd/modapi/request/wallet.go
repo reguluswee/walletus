@@ -9,4 +9,5 @@ type WalletCreateRequest struct {
 type TenantCreateRequest struct {
 	Name     string `json:"name"`
 	UniqueID string `json:"unique_id"`
+	Callback string `json:"call_back"`
 }

@@ -11,6 +11,8 @@ func SubRouters(e *gin.RouterGroup) {
 	homeGroup.GET("public", http.Public)
 
 	homeGroup.POST("/tenant/create", http.TenantCreate)
+	homeGroup.POST("/tenant/update", http.TenantCreate)
+
 	homeGroup.POST("/was/create", http.WalletCreate)
 
 }

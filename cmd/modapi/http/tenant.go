@@ -58,8 +58,48 @@ func TenantCreate(c *gin.Context) {
 		EncMasterXprv: enc.EncMasterXprv,
 		KdfParams:     string(kdfBytes),
 		Version:       "1",
+		Callback:      request.Callback,
 	}
 
+	db.Save(&tenant)
+
+	res.Data = gin.H{
+		"tenant_id":        tenant.ID,
+		"tenant_unique_id": tenant.UniqueID,
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+func TenantUpdate(c *gin.Context) {
+	var request request.TenantCreateRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, common.Response{
+			Code:      codes.CODE_ERR_REQFORMAT,
+			Msg:       "invalid request",
+			Data:      nil,
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+	res := common.Response{}
+	res.Timestamp = time.Now().Unix()
+
+	res.Code = codes.CODE_SUCCESS
+	res.Msg = "success"
+
+	var db = system.GetDb()
+	var tenant model.Tenant
+	db.Where("unique_id = ?", request.UniqueID).First(&tenant)
+	if tenant.ID == 0 {
+		res.Code = codes.CODE_ERR_OBJ_NOT_FOUND
+		res.Msg = "tenant not existed"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	tenant.Name = request.Name
+	tenant.Callback = request.Callback
 	db.Save(&tenant)
 
 	res.Data = gin.H{

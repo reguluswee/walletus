@@ -10,6 +10,7 @@ type Tenant struct {
 	KdfParams     string    `gorm:"column:kdf_params;type:varchar(255);not null"`
 	AddTime       time.Time `gorm:"column:add_time" json:"add_time"`
 	Version       string    `gorm:"column:version;type:varchar(255);not null" json:"version"`
+	Callback      string    `gorm:"column:call_back;type:varchar(255);not null" json:"call_back"`
 }
 
 func (Tenant) TableName() string {
