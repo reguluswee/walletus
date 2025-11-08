@@ -9,4 +9,6 @@ func Routers(e *gin.RouterGroup) {
 	homeGroup := e.Group("/")
 	homeGroup.GET("public", Public)
 
+	homeGroup.POST("/was/create", WalletCreate)
+
 }

@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
 	router "github.com/reguluswee/walletus/cmd/modapi/router"
 	"github.com/reguluswee/walletus/common/config"
 	"github.com/reguluswee/walletus/common/log"
@@ -18,10 +17,6 @@ import (
 
 func main() {
 	fmt.Println("starting...")
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
 
 	// 创建主上下文和取消函数
 	_, cancel := context.WithCancel(context.Background())
