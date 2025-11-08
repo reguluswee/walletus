@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/reguluswee/walletus/cmd/modapi/codes"
 	"github.com/reguluswee/walletus/cmd/modapi/common"
+	"github.com/reguluswee/walletus/common/bip"
 )
 
 func Public(c *gin.Context) {
@@ -17,13 +18,7 @@ func Public(c *gin.Context) {
 	res.Msg = "success"
 
 	res.Data = gin.H{
-		"rpc": map[string]string{
-			"Solana":   "https://mainnet.helius-rpc.com/?api-key=4b1030d1-e346-4788-a65d-29c065efa012",
-			"Ethereum": "https://eth.llamarpc.com",
-			"Base":     "https://base-mainnet.infura.io/v3/15d81a19824c41159daec8327f691720",
-			"Arbitrum": "https://arbitrum-mainnet.infura.io/v3/15d81a19824c41159daec8327f691720",
-			"Bsc":      "https://binance.llamarpc.com",
-		},
+		"supported_chains": bip.SupportChains(),
 	}
 
 	c.JSON(http.StatusOK, res)

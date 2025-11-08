@@ -60,6 +60,10 @@ type ChainDerivedPath struct {
 	XPub        string
 }
 
+func SupportChains() []ChainDef {
+	return chains
+}
+
 func CheckValidChainCode(chainCode string) (ChainDef, error) {
 	for _, v := range chains {
 		if chainCode == v.Name {
