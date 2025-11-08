@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"os"
 
-	general "github.com/reguluswee/walletus/cmd/modapi/http"
 	"github.com/reguluswee/walletus/cmd/modapi/interceptor"
 
 	"github.com/reguluswee/walletus/common/log"
@@ -22,7 +21,7 @@ func Include(opts ...Option) {
 }
 
 func Init() *gin.Engine {
-	Include(general.Routers)
+	Include(SubRouters)
 
 	r := gin.New()
 
