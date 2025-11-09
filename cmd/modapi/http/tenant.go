@@ -56,6 +56,7 @@ func TenantCreate(c *gin.Context) {
 		UniqueID:      request.UniqueID,
 		AddTime:       time.Now(),
 		EncMasterXprv: enc.EncMasterXprv,
+		EncMasterSeed: enc.EncMasterSeed,
 		KdfParams:     string(kdfBytes),
 		Version:       "1",
 		Callback:      request.Callback,

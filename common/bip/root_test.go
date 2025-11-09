@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/reguluswee/walletus/common/log"
 	"github.com/reguluswee/walletus/common/model"
 	"github.com/reguluswee/walletus/common/system"
 )
@@ -22,6 +23,7 @@ func TestGenerateMasterXprv(t *testing.T) {
 
 	tenant.AddTime = time.Now()
 	tenant.EncMasterXprv = enc.EncMasterXprv
+	tenant.EncMasterSeed = enc.EncMasterSeed
 	tenant.KdfParams = string(kdfBytes)
 	tenant.Version = "1"
 	db.Save(&tenant)
@@ -33,18 +35,20 @@ func TestGenerateMasterXprv(t *testing.T) {
 		CoinType:    60,
 		XPub:        chainxpubETH.XPub,
 		DerivedPath: chainxpubETH.DerivedPath,
+		AddTime:     time.Now(),
 	}
 	err := db.Save(&tenantChainETH).Error
 	fmt.Println(err)
 	i := 1
 	for i <= 2 {
-		addr, path, _ := DeriveAddressFromXpub(chainxpubETH.XPub, uint32(tenant.ID), uint32(i), "ETH")
+		addr, path, _ := DeriveAddressFromXpub(enc, chainxpubETH.XPub, uint32(tenant.ID), uint32(i), "ETH")
 		db.Save(&model.TenantAddress{
 			TenantID:      tenant.ID,
 			TenantChainID: tenantChainETH.ID,
 			AddressIndex:  uint32(i),
 			AddressVal:    addr,
 			DerivedPath:   path,
+			AddTime:       time.Now(),
 		})
 		i++
 	}
@@ -56,21 +60,24 @@ func TestGenerateMasterXprv(t *testing.T) {
 		CoinType:    195,
 		XPub:        chainxpubTRON.XPub,
 		DerivedPath: chainxpubTRON.DerivedPath,
+		AddTime:     time.Now(),
 	}
 	err = db.Save(&tenantChainTRON).Error
 	fmt.Println(err)
 	i = 1
 	for i <= 2 {
-		addr, path, _ := DeriveAddressFromXpub(chainxpubTRON.XPub, uint32(tenant.ID), uint32(i), "TRON")
+		addr, path, _ := DeriveAddressFromXpub(enc, chainxpubTRON.XPub, uint32(tenant.ID), uint32(i), "TRON")
 		db.Save(&model.TenantAddress{
 			TenantID:      tenant.ID,
 			TenantChainID: tenantChainTRON.ID,
 			AddressIndex:  uint32(i),
 			AddressVal:    addr,
 			DerivedPath:   path,
+			AddTime:       time.Now(),
 		})
 		i++
 	}
+
 }
 
 func TestDerivedPri(t *testing.T) {
@@ -82,6 +89,7 @@ func TestDerivedPri(t *testing.T) {
 	json.Unmarshal([]byte(tenant.KdfParams), &kdf)
 	em := EncMaster{
 		EncMasterXprv: tenant.EncMasterXprv,
+		EncMasterSeed: tenant.EncMasterSeed,
 		KDF:           kdf,
 	}
 
@@ -95,4 +103,19 @@ func TestDerivedPri(t *testing.T) {
 
 	addr, pri, err := AddressAndPrivFromPath(em, "m/44'/60'/1'/0/2", "ETH")
 	fmt.Println(addr, pri)
+}
+
+func TestSolanaPath(t *testing.T) {
+	db := system.GetDb()
+	var tenant model.Tenant
+	db.Where("id = 1").First(&tenant)
+
+	var kdf KDFParams
+	json.Unmarshal([]byte(tenant.KdfParams), &kdf)
+	em := EncMaster{
+		EncMasterXprv: tenant.EncMasterXprv,
+		EncMasterSeed: tenant.EncMasterSeed,
+		KDF:           kdf,
+	}
+	log.Info(em)
 }

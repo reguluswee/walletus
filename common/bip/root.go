@@ -8,51 +8,18 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
 
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/btcsuite/btcutil/hdkeychain"
-	bip39 "github.com/tyler-smith/go-bip39"
+	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/argon2"
 
 	gethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
-
-const Hardened = hdkeychain.HardenedKeyStart
-const tenantSecretPassword = "tenant_secret_password"
-
-var chains = []ChainDef{
-	{"ETH", 60},
-	{"BSC", 60},     // BSC 使用 ETH 的 CoinType，因为地址格式相同
-	{"OP", 60},      // Optimism 使用 ETH 的 CoinType
-	{"ARB", 60},     // Arbitrum 使用 ETH 的 CoinType
-	{"POLYGON", 60}, // Polygon 使用 ETH 的 CoinType
-	{"TRON", 195},   // TRON 有独立的 CoinType
-}
-
-type KDFParams struct {
-	Alg  string `json:"alg"`
-	Salt string `json:"salt"` // hex
-	Time uint32 `json:"time"`
-	Mem  uint32 `json:"mem"`
-	Par  uint8  `json:"par"`
-}
-
-type ChainDef struct {
-	Name     string
-	CoinType uint32
-}
-
-type EncMaster struct {
-	// gcm:<base64(nonce|ciphertext|tag)>
-	EncMasterXprv string    `json:"enc_master_xprv"`
-	KDF           KDFParams `json:"kdf_params"`
-}
 
 type ChainDerivedPath struct {
 	Chain       ChainDef
@@ -73,42 +40,8 @@ func CheckValidChainCode(chainCode string) (ChainDef, error) {
 	return ChainDef{}, fmt.Errorf("unsupport chain %s", chainCode)
 }
 
-func GenerateMasterXprv() (EncMaster, error) {
-	// === 1) 生成助记词 -> seed -> master xprv ===
-	entropy, err := bip39.NewEntropy(128) // 12词
-	if err != nil {
-		return EncMaster{}, fmt.Errorf("生成熵失败: %v", err)
-	}
-	mnemonic, err := bip39.NewMnemonic(entropy)
-	if err != nil {
-		return EncMaster{}, fmt.Errorf("生成助记词失败: %v", err)
-	}
-	seed := bip39.NewSeed(mnemonic, "") // 可加 passphrase
-
-	var enc EncMaster
-
-	master, err := hdkeychain.NewMaster(seed, MainNetParamsLikeBIP32())
-	if err != nil {
-		return enc, err
-	}
-
-	masterXprv := master.String()
-
-	// === 2) 用 Argon2id + AES-GCM 加密 master xprv，得到 enc_master_xprv / kdf_params ===
-	enc = encryptMasterXprv([]byte(masterXprv), []byte(tenantSecretPassword))
-	fmt.Println("enc_master_xprv:", enc.EncMasterXprv)
-	kdfJSON, _ := json.Marshal(enc.KDF)
-	fmt.Println("kdf_params:", string(kdfJSON))
-
-	return enc, nil
-}
-
-func GenerateDerivationChain(tenantIndex uint32, enc EncMaster, chainCode string) (ChainDerivedPath, error) {
+func GenerateEvmDerivationChain(tenantIndex uint32, enc EncMaster, chainDef ChainDef) (ChainDerivedPath, error) {
 	var cdp ChainDerivedPath
-	chainDef, err := CheckValidChainCode(chainCode)
-	if err != nil {
-		return cdp, fmt.Errorf("unsupport chain: %s", chainCode)
-	}
 	plainMaster, err := decryptMasterXprv(enc, []byte(tenantSecretPassword))
 	if err != nil {
 		return cdp, err
@@ -142,11 +75,7 @@ func GenerateDerivationChain(tenantIndex uint32, enc EncMaster, chainCode string
 	return cdp, nil
 }
 
-func DeriveAddressFromXpub(xpub string, tenantIndex, addressIndex uint32, chainCode string) (addr string, path string, err error) {
-	chainDef, err := CheckValidChainCode(chainCode)
-	if err != nil {
-		return "", "", fmt.Errorf("unsupport chain: %s", chainCode)
-	}
+func DeriveEvmAddressFromXpub(xpub string, tenantIndex, addressIndex uint32, chainDef ChainDef) (addr string, path string, err error) {
 	node, err := hdkeychain.NewKeyFromString(xpub)
 	if err != nil {
 		return "", "", err
@@ -337,8 +266,7 @@ func tronAddressFromPub(pub *ecdsa.PublicKey) string {
 }
 
 // ========= 加密/解密 =========
-
-func encryptMasterXprv(plain []byte, password []byte) EncMaster {
+func encryptMaster(plain, seed []byte, password []byte) EncMaster {
 	// 生成随机 salt
 	salt := make([]byte, 16)
 	_, _ = rand.Read(salt)
@@ -350,14 +278,19 @@ func encryptMasterXprv(plain []byte, password []byte) EncMaster {
 	aesgcm, err := cipher.NewGCM(block)
 	must(err)
 
-	nonce := make([]byte, aesgcm.NonceSize())
-	_, _ = rand.Read(nonce)
+	noncePrv := make([]byte, aesgcm.NonceSize())
+	_, _ = rand.Read(noncePrv)
+	ct := aesgcm.Seal(nil, noncePrv, plain, nil)
+	buf := append(noncePrv, ct...) // 末尾已含 GCM tag
 
-	ct := aesgcm.Seal(nil, nonce, plain, nil)
-	buf := append(nonce, ct...) // 末尾已含 GCM tag
+	nonceSeed := make([]byte, aesgcm.NonceSize())
+	_, _ = rand.Read(nonceSeed)
+	ctSeed := aesgcm.Seal(nil, nonceSeed, seed, nil)
+	bufSeed := append(nonceSeed, ctSeed...)
 
 	return EncMaster{
 		EncMasterXprv: "gcm:" + base64.StdEncoding.EncodeToString(buf),
+		EncMasterSeed: "gcm:" + base64.StdEncoding.EncodeToString(bufSeed),
 		KDF: KDFParams{
 			Alg:  "argon2id",
 			Salt: hex.EncodeToString(salt),
@@ -371,6 +304,41 @@ func decryptMasterXprv(enc EncMaster, password []byte) ([]byte, error) {
 		return nil, fmt.Errorf("bad enc_master_xprv format")
 	}
 	raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(enc.EncMasterXprv, "gcm:"))
+	if err != nil {
+		return nil, fmt.Errorf("base64 decode failed: %v", err)
+	}
+	salt, err := hex.DecodeString(enc.KDF.Salt)
+	if err != nil {
+		return nil, fmt.Errorf("hex decode salt failed: %v", err)
+	}
+	key := argon2.IDKey(password, salt, enc.KDF.Time, enc.KDF.Mem, enc.KDF.Par, 32)
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("aes cipher failed: %v", err)
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("aes gcm failed: %v", err)
+	}
+
+	nonceSize := aesgcm.NonceSize()
+	if len(raw) < nonceSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+	nonce, ct := raw[:nonceSize], raw[nonceSize:]
+	plain, err := aesgcm.Open(nil, nonce, ct, nil)
+	if err != nil {
+		return nil, fmt.Errorf("aes gcm open failed: %v", err)
+	}
+	return plain, nil // string(plain) 即 xprv
+}
+
+func decryptMasterSeed(enc EncMaster, password []byte) ([]byte, error) {
+	if !strings.HasPrefix(enc.EncMasterSeed, "gcm:") {
+		return nil, fmt.Errorf("bad enc_master_seed format")
+	}
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(enc.EncMasterSeed, "gcm:"))
 	if err != nil {
 		return nil, fmt.Errorf("base64 decode failed: %v", err)
 	}

@@ -6,7 +6,8 @@ type Tenant struct {
 	ID            uint64    `gorm:"primaryKey;autoIncrement"`
 	UniqueID      string    `gorm:"column:unique_id;type:varchar(100);not null" json:"unique_id"`
 	Name          string    `gorm:"column:name;type:varchar(255);not null" json:"name"`
-	EncMasterXprv string    `gorm:"column:enc_master_xprv;type:varchar(255);not null"`
+	EncMasterXprv string    `gorm:"column:enc_master_xprv;type:varchar(1024);not null"`
+	EncMasterSeed string    `gorm:"column:enc_master_seed;type:varchar(2048);not null"`
 	KdfParams     string    `gorm:"column:kdf_params;type:varchar(255);not null"`
 	AddTime       time.Time `gorm:"column:add_time" json:"add_time"`
 	Version       string    `gorm:"column:version;type:varchar(255);not null" json:"version"`

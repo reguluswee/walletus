@@ -24,6 +24,7 @@ func WalletCreate(request request.WalletCreateRequest, tenant model.Tenant) (uin
 	}
 	enc := bip.EncMaster{
 		EncMasterXprv: tenant.EncMasterXprv,
+		EncMasterSeed: tenant.EncMasterSeed,
 		KDF:           kdf,
 	}
 
@@ -70,7 +71,7 @@ func WalletCreate(request request.WalletCreateRequest, tenant model.Tenant) (uin
 		return tenantAddress.ID, tenantAddress.AddressVal, nil
 	}
 
-	addr, path, err := bip.DeriveAddressFromXpub(tenantChain.XPub, uint32(tenant.ID), request.UniqueID, tenantChain.Chain)
+	addr, path, err := bip.DeriveAddressFromXpub(enc, tenantChain.XPub, uint32(tenant.ID), request.UniqueID, tenantChain.Chain)
 
 	if err != nil {
 		return 0, "", errors.New("derive address from xpub error:" + err.Error())
