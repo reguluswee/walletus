@@ -53,6 +53,6 @@ func GenerateSolDerivationChain(tenantIndex uint32, enc EncMaster) (ChainDerived
 	return ChainDerivedPath{
 		Chain:       chainDef,
 		XPub:        "",
-		DerivedPath: fmt.Sprintf("m/44'/501'/%d", tenantIndex),
+		DerivedPath: fmt.Sprintf("m/44'/501'/%d'/0'", tenantIndex),
 	}, nil
 }

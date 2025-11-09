@@ -69,7 +69,7 @@ func GenerateEvmDerivationChain(tenantIndex uint32, enc EncMaster, chainDef Chai
 	fmt.Printf("[%s] xpub: %s\n", chainDef.Name, xpub)
 
 	cdp.Chain = chainDef
-	cdp.DerivedPath = fmt.Sprintf("m/44'/%d'/%d'", chainDef.CoinType, tenantIndex)
+	cdp.DerivedPath = fmt.Sprintf("m/44'/%d'/%d'/0", chainDef.CoinType, tenantIndex)
 	cdp.XPub = xpub
 
 	return cdp, nil
