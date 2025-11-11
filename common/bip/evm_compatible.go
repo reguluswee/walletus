@@ -16,31 +16,34 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil/hdkeychain"
 	"github.com/mr-tron/base58"
+	"github.com/reguluswee/walletus/common/chain/dep"
 	"golang.org/x/crypto/argon2"
 
 	gethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
 
+var chains = dep.GetSupportedChains()
+
 type ChainDerivedPath struct {
-	Chain       ChainDef
+	Chain       dep.ChainDef
 	DerivedPath string
 	XPub        string
 }
 
-func SupportChains() []ChainDef {
+func SupportChains() []dep.ChainDef {
 	return chains
 }
 
-func CheckValidChainCode(chainCode string) (ChainDef, error) {
+func CheckValidChainCode(chainCode string) (dep.ChainDef, error) {
 	for _, v := range chains {
 		if chainCode == v.Name {
 			return v, nil
 		}
 	}
-	return ChainDef{}, fmt.Errorf("unsupport chain %s", chainCode)
+	return dep.ChainDef{}, fmt.Errorf("unsupport chain %s", chainCode)
 }
 
-func GenerateEvmDerivationChain(tenantIndex uint32, enc EncMaster, chainDef ChainDef) (ChainDerivedPath, error) {
+func GenerateEvmDerivationChain(tenantIndex uint32, enc EncMaster, chainDef dep.ChainDef) (ChainDerivedPath, error) {
 	var cdp ChainDerivedPath
 	plainMaster, err := decryptMasterXprv(enc, []byte(tenantSecretPassword))
 	if err != nil {
@@ -75,7 +78,7 @@ func GenerateEvmDerivationChain(tenantIndex uint32, enc EncMaster, chainDef Chai
 	return cdp, nil
 }
 
-func DeriveEvmAddressFromXpub(xpub string, tenantIndex, addressIndex uint32, chainDef ChainDef) (addr string, path string, err error) {
+func DeriveEvmAddressFromXpub(xpub string, tenantIndex, addressIndex uint32, chainDef dep.ChainDef) (addr string, path string, err error) {
 	node, err := hdkeychain.NewKeyFromString(xpub)
 	if err != nil {
 		return "", "", err

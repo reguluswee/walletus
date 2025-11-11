@@ -10,27 +10,12 @@ import (
 const Hardened = hdkeychain.HardenedKeyStart
 const tenantSecretPassword = "tenant_secret_password"
 
-var chains = []ChainDef{
-	{"ETH", 60},
-	{"BSC", 60},
-	{"OP", 60},
-	{"ARB", 60},
-	{"POLYGON", 60},
-	{"TRON", 195},
-	{"SOLANA", 501},
-}
-
 type KDFParams struct {
 	Alg  string `json:"alg"`
 	Salt string `json:"salt"` // hex
 	Time uint32 `json:"time"`
 	Mem  uint32 `json:"mem"`
 	Par  uint8  `json:"par"`
-}
-
-type ChainDef struct {
-	Name     string
-	CoinType uint32
 }
 
 type EncMaster struct {
