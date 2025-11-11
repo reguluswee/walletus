@@ -27,10 +27,6 @@ type IndexerRootConfig struct {
 	Path string `yaml:"path"`
 }
 
-type ContractConfig struct {
-	NAddress string `yaml:"nAddress"`
-}
-
 type Config struct {
 	Database    DatabaseConfig    `yaml:"database"`
 	Chain       []ChainConfig     `yaml:"chain"`
@@ -40,7 +36,6 @@ type Config struct {
 	Http        HttpConfig        `yaml:"http"`
 	ProxyEnable bool              `yaml:"proxyEnable"`
 	IndexerRoot IndexerRootConfig `yaml:"indexerRoot"`
-	Contract    ContractConfig    `yaml:"contract"`
 }
 
 // DatabaseConfig holds the database connection parameters.
