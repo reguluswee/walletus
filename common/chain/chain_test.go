@@ -18,7 +18,7 @@ func TestChainGateway(t *testing.T) {
 	tron.MustRegister()
 
 	eth := dep.ChainDef{
-		Name:     "ETH",
+		Name:     "BSC",
 		CoinType: 60,
 	}
 	gw := NewGateway()

@@ -19,7 +19,7 @@ func (c *EVMClient) pick(network string) (*gethrpc.Client, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	// 简单：取第一个（可扩展为加权/熔断/健康检查）
+	// TODO 取第一个（可扩展为加权/熔断/健康检查）
 	if len(pool.clients) == 0 {
 		return nil, "", fmt.Errorf("no RPC available for %s", network)
 	}
