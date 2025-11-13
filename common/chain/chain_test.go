@@ -23,7 +23,7 @@ func TestChainGateway(t *testing.T) {
 	q := BalanceQuery{
 		Chain:       eth,
 		Network:     "mainnet",
-		Addresses:   []string{"0xA...", "0xB..."},
+		Addresses:   []string{"0xe38533e11B680eAf4C9519Ea99B633BD3ef5c2F8"},
 		Tokens:      map[string][]string{ /* 可空：只查原生 */ },
 		Consistency: dep.Consistency{Mode: "safe", MinConfirmations: 0},
 	}
