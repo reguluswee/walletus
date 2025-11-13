@@ -52,20 +52,51 @@ func TestChainGatewayTRON(t *testing.T) {
 	gw := NewGateway()
 
 	// TRON 地址使用 base58 格式（例如：T...开头）
-	// 这里使用一些知名的 TRON 地址作为示例
-	// 如果需要查询特定地址，请替换为实际的 TRON 地址
-	tronAddress := "TB1LbnUG14S6i2tWgf1pRtwXt6WHTtcSVL" // 示例地址，请替换为实际地址
+	tronAddress := "TB1LbnUG14S6i2tWgf1pRtwXt6WHTtcSVL"
 
 	q := BalanceQuery{
 		Chain:     tronChain,
 		Network:   "mainnet",
 		Addresses: []string{tronAddress},
-		// 如果需要查询 TRC20 Token，请使用 base58 格式的合约地址
-		Tokens: map[string][]string{
+		Tokens:    map[string][]string{
 			// tronAddress: {"TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"}, // USDT-TRC20 示例合约地址
 		},
 		// TRON 链支持的模式：latest 或 latest_solid
 		Consistency: dep.Consistency{Mode: "latest", MinConfirmations: 0},
+	}
+	res, err := gw.GetBalances(context.Background(), q)
+	if err != nil {
+		t.Fatalf("查询余额失败: %v", err)
+	}
+
+	printBatchBalanceResult(t, res)
+
+	fmt.Println("\n========== 余额查询结果（控制台输出）==========")
+	printBatchBalanceResultToConsole(res)
+}
+
+func TestChainGatewaySOL(t *testing.T) {
+	solana.MustRegister()
+
+	solChain := dep.ChainDef{
+		Name:     "SOLANA",
+		CoinType: 501,
+	}
+	gw := NewGateway()
+
+	// Solana 地址使用 base58 格式（通常 32-44 个字符）
+	solAddress := "GXyzievGa9eBXGRhBxjUUP55mAhF5W37pu6WKqnvGkrv"
+
+	q := BalanceQuery{
+		Chain:     solChain,
+		Network:   "mainnet",
+		Addresses: []string{solAddress},
+		// 如果需要查询 SPL Token，请使用 Token Mint 地址（base58 格式）
+		Tokens: map[string][]string{
+			// solAddress: {"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"}, // USDC 示例 Token Mint 地址
+		},
+		// Solana 链支持的模式：processed|confirmed|finalized
+		Consistency: dep.Consistency{Mode: "confirmed", MinConfirmations: 0},
 	}
 	res, err := gw.GetBalances(context.Background(), q)
 	if err != nil {
