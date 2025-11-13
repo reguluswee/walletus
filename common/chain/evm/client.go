@@ -15,6 +15,27 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
+// ABI 常量定义
+const erc20ABIJSON = `[
+  {"constant":true,"inputs":[{"name":"owner","type":"address"}],
+   "name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}
+]`
+
+// Multicall2.tryAggregate(bool,(address,bytes)[]) -> (bool,bytes)[]
+const multicallABI = `[
+  {"inputs":[
+     {"internalType":"bool","name":"requireSuccess","type":"bool"},
+     {"components":[
+        {"internalType":"address","name":"target","type":"address"},
+        {"internalType":"bytes","name":"callData","type":"bytes"}],
+      "internalType":"struct Multicall2.Call[]","name":"calls","type":"tuple[]"}],
+   "name":"tryAggregate",
+   "outputs":[{"components":[
+        {"internalType":"bool","name":"success","type":"bool"},
+        {"internalType":"bytes","name":"returnData","type":"bytes"}],
+      "internalType":"struct Multicall2.Result[]","name":"returnData","type":"tuple[]"}],
+   "stateMutability":"nonpayable","type":"function"}]`
+
 type rpcPool struct {
 	clients []*gethrpc.Client
 	names   []string
@@ -31,15 +52,28 @@ type EVMClient struct {
 	multicallABI abi.ABI
 }
 
+// NewEVMClient 创建一个新的 EVM 客户端实例
+// RPC 配置会在首次使用时从系统配置中加载（通过 ensurePool 方法）
 func NewEVMClient(chain dep.ChainDef) *EVMClient {
 	iface := &EVMClient{
 		pools:      make(map[string]*rpcPool),
 		mcAddr:     make(map[string]string),
-		maxBatch:   256,
-		reqTimeout: 2 * time.Second,
+		maxBatch:   256,             // 默认批处理大小
+		reqTimeout: 2 * time.Second, // 默认请求超时时间
 	}
-	erc20, _ := abi.JSON(strings.NewReader(erc20ABIJSON))
-	mc, _ := abi.JSON(strings.NewReader(multicallABI))
+
+	// 解析 ABI（这些 ABI 是硬编码的常量，解析不应该失败）
+	erc20, err := abi.JSON(strings.NewReader(erc20ABIJSON))
+	if err != nil {
+		// ABI 解析失败不应该发生，但如果发生则使用空 ABI
+		// 实际使用中会在调用相关方法时报错
+		erc20 = abi.ABI{}
+	}
+	mc, err2 := abi.JSON(strings.NewReader(multicallABI))
+	if err2 != nil {
+		// 同上
+		mc = abi.ABI{}
+	}
 	iface.erc20ABI = erc20
 	iface.multicallABI = mc
 	return iface

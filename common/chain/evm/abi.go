@@ -26,6 +26,10 @@ func (c *EVMClient) pick(network string) (*gethrpc.Client, string, error) {
 	return pool.clients[0], pool.names[0], nil
 }
 
+// ensurePool 确保指定网络的 RPC 连接池已初始化
+// 该方法会从系统配置中读取 RPC 端点配置（通过 config.GetRpcConfig）
+// 配置文件的路径由 config 包管理，通常从 dev.yml 或环境变量指定
+// RPC 配置格式：chain[].name 必须与 network 参数匹配，chain[].queryRpc 包含 RPC 端点列表
 func (c *EVMClient) ensurePool(network string) (*rpcPool, error) {
 	c.mu.RLock()
 	p, ok := c.pools[network]
@@ -36,26 +40,33 @@ func (c *EVMClient) ensurePool(network string) (*rpcPool, error) {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	// 双检
+	// 双检锁，避免并发创建
 	if p, ok := c.pools[network]; ok {
 		return p, nil
 	}
 
+	// 从系统配置中获取 RPC 配置
+	// 配置通过 config.GetRpcConfig 读取，匹配链名称（如 "ETH", "BSC", "BSC_TESTNET"）
 	cc := config.GetRpcConfig(network)
 	if cc == nil || len(cc.GetRpc()) == 0 {
 		return nil, fmt.Errorf("missing RPC config for %s", network)
 	}
+
+	// 创建 RPC 连接池
 	var pool rpcPool
 	for _, url := range cc.GetRpc() {
 		if rc, err := gethrpc.Dial(url); err == nil {
 			pool.clients = append(pool.clients, rc)
 			pool.names = append(pool.names, shortAlias(network, url))
 		}
+		// 注意：如果某个 RPC 连接失败，会静默跳过，只使用成功连接的 RPC
 	}
 	if len(pool.clients) == 0 {
 		return nil, fmt.Errorf("dial RPC failed for %s", network)
 	}
 	c.pools[network] = &pool
+
+	// 初始化 Multicall 地址（如果尚未初始化）
 	if _, ok := c.mcAddr[network]; !ok {
 		c.mcAddr[network] = resolveMulticall(network)
 	}
@@ -209,27 +220,7 @@ func erc20BalanceOfSelector() []byte {
 	return h.Sum(nil)[:4]
 }
 
-// ---------------- ABI & Multicall 地址 ----------------
-
-const erc20ABIJSON = `[
-  {"constant":true,"inputs":[{"name":"owner","type":"address"}],
-   "name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}
-]`
-
-// Multicall2.tryAggregate(bool,(address,bytes)[]) -> (bool,bytes)[]
-const multicallABI = `[
-  {"inputs":[
-     {"internalType":"bool","name":"requireSuccess","type":"bool"},
-     {"components":[
-        {"internalType":"address","name":"target","type":"address"},
-        {"internalType":"bytes","name":"callData","type":"bytes"}],
-      "internalType":"struct Multicall2.Call[]","name":"calls","type":"tuple[]"}],
-   "name":"tryAggregate",
-   "outputs":[{"components":[
-        {"internalType":"bool","name":"success","type":"bool"},
-        {"internalType":"bytes","name":"returnData","type":"bytes"}],
-      "internalType":"struct Multicall2.Result[]","name":"returnData","type":"tuple[]"}],
-   "stateMutability":"nonpayable","type":"function"}]`
+// ---------------- Multicall 地址 ----------------
 
 func resolveMulticall(network string) string {
 	switch strings.ToUpper(network) {

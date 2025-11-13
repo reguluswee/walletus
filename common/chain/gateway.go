@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/reguluswee/walletus/common/chain/dep"
+	"github.com/reguluswee/walletus/common/chain/evm"
 )
 
 type Gateway struct{}
@@ -19,6 +20,10 @@ type BalanceQuery struct {
 	Consistency dep.Consistency
 }
 
+func init() {
+	evm.MustRegister()
+}
+
 func (g *Gateway) GetBalances(ctx context.Context, q BalanceQuery) (*dep.BatchBalanceResult, error) {
 	client, ok := dep.GetClient(q.Chain)
 
@@ -26,19 +31,19 @@ func (g *Gateway) GetBalances(ctx context.Context, q BalanceQuery) (*dep.BatchBa
 		return nil, dep.ErrUnsupportedChain
 	}
 
-	anchor, err := client.Anchor(ctx, q.Network, q.Consistency)
+	anchor, err := client.Anchor(ctx, q.Chain.Name, q.Consistency)
 	if err != nil {
 		return nil, err
 	}
 
-	nativeMap, err := client.NativeBalanceBatch(ctx, q.Network, q.Addresses, anchor)
+	nativeMap, err := client.NativeBalanceBatch(ctx, q.Chain.Name, q.Addresses, anchor)
 	if err != nil {
 		return nil, err
 	}
 
 	var tokenMap map[string][]dep.TokenBalance
 	if len(q.Tokens) > 0 {
-		tokenMap, err = client.TokenBalancesBatch(ctx, q.Network, q.Tokens, anchor)
+		tokenMap, err = client.TokenBalancesBatch(ctx, q.Chain.Name, q.Tokens, anchor)
 		if err != nil {
 			return nil, err
 		}
