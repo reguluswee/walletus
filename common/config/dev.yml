@@ -23,7 +23,7 @@ chain:
   - name: TRON
     wsRpc: 
     queryRpc:
-      - https://api.trongrid.io/jsonrpc
+      - https://api.trongrid.io
     slotParallel: 1
     txDetal: 200
     rangeRound: 200

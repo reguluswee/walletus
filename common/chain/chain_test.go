@@ -12,7 +12,7 @@ import (
 	"github.com/reguluswee/walletus/common/chain/tron"
 )
 
-func TestChainGateway(t *testing.T) {
+func TestChainGatewayEVM(t *testing.T) {
 	evm.MustRegister()
 	solana.MustRegister()
 	tron.MustRegister()
@@ -30,6 +30,42 @@ func TestChainGateway(t *testing.T) {
 			"0xe38533e11B680eAf4C9519Ea99B633BD3ef5c2F8": {"0xD9A442856C234a39a81a089C06451EBAa4306a72"},
 		},
 		Consistency: dep.Consistency{Mode: "safe", MinConfirmations: 0},
+	}
+	res, err := gw.GetBalances(context.Background(), q)
+	if err != nil {
+		t.Fatalf("查询余额失败: %v", err)
+	}
+
+	printBatchBalanceResult(t, res)
+
+	fmt.Println("\n========== 余额查询结果（控制台输出）==========")
+	printBatchBalanceResultToConsole(res)
+}
+
+func TestChainGatewayTRON(t *testing.T) {
+	tron.MustRegister()
+
+	tronChain := dep.ChainDef{
+		Name:     "TRON",
+		CoinType: 195,
+	}
+	gw := NewGateway()
+
+	// TRON 地址使用 base58 格式（例如：T...开头）
+	// 这里使用一些知名的 TRON 地址作为示例
+	// 如果需要查询特定地址，请替换为实际的 TRON 地址
+	tronAddress := "TB1LbnUG14S6i2tWgf1pRtwXt6WHTtcSVL" // 示例地址，请替换为实际地址
+
+	q := BalanceQuery{
+		Chain:     tronChain,
+		Network:   "mainnet",
+		Addresses: []string{tronAddress},
+		// 如果需要查询 TRC20 Token，请使用 base58 格式的合约地址
+		Tokens: map[string][]string{
+			// tronAddress: {"TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"}, // USDT-TRC20 示例合约地址
+		},
+		// TRON 链支持的模式：latest 或 latest_solid
+		Consistency: dep.Consistency{Mode: "latest", MinConfirmations: 0},
 	}
 	res, err := gw.GetBalances(context.Background(), q)
 	if err != nil {
@@ -61,9 +97,10 @@ func printBatchBalanceResult(t *testing.T, res *dep.BatchBalanceResult) {
 		// 原生币余额
 		if result.Native != nil {
 			amount := formatBalance(result.Native.Amount, result.Native.Decimals)
+			unitName := getUnitName(res.Chain.Name)
 			t.Logf("原生币 (%s):", result.Native.Symbol)
 			t.Logf("  余额: %s %s", amount, result.Native.Symbol)
-			t.Logf("  原始值 (Wei): %s", result.Native.Amount.String())
+			t.Logf("  原始值 (%s): %s", unitName, result.Native.Amount.String())
 			t.Logf("  小数位数: %d", result.Native.Decimals)
 		} else {
 			t.Log("原生币: 无余额")
@@ -131,6 +168,20 @@ func trimTrailingZeros(s string) string {
 	return s
 }
 
+// getUnitName 根据链名称返回最小单位名称
+func getUnitName(chainName string) string {
+	switch chainName {
+	case "TRON":
+		return "Sun"
+	case "ETH", "BSC", "OP", "ARB", "POLYGON":
+		return "Wei"
+	case "SOLANA":
+		return "Lamports"
+	default:
+		return "Wei"
+	}
+}
+
 // printBatchBalanceResultToConsole 格式化打印到控制台（使用 fmt.Printf）
 func printBatchBalanceResultToConsole(res *dep.BatchBalanceResult) {
 	fmt.Printf("链名称: %s (CoinType: %d)\n", res.Chain.Name, res.Chain.CoinType)
@@ -147,9 +198,10 @@ func printBatchBalanceResultToConsole(res *dep.BatchBalanceResult) {
 		// 原生币余额
 		if result.Native != nil {
 			amount := formatBalance(result.Native.Amount, result.Native.Decimals)
+			unitName := getUnitName(res.Chain.Name)
 			fmt.Printf("原生币 (%s):\n", result.Native.Symbol)
 			fmt.Printf("  余额: %s %s\n", amount, result.Native.Symbol)
-			fmt.Printf("  原始值 (Wei): %s\n", result.Native.Amount.String())
+			fmt.Printf("  原始值 (%s): %s\n", unitName, result.Native.Amount.String())
 			fmt.Printf("  小数位数: %d\n\n", result.Native.Decimals)
 		} else {
 			fmt.Printf("原生币: 无余额\n\n")
