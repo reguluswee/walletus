@@ -84,15 +84,14 @@ func TestChainGatewaySOL(t *testing.T) {
 	}
 	gw := NewGateway()
 
-	// Solana 地址使用 base58 格式（通常 32-44 个字符）
+	// Solana 地址使用 base58 格式
 	solAddress := "GXyzievGa9eBXGRhBxjUUP55mAhF5W37pu6WKqnvGkrv"
 
 	q := BalanceQuery{
 		Chain:     solChain,
 		Network:   "mainnet",
 		Addresses: []string{solAddress},
-		// 如果需要查询 SPL Token，请使用 Token Mint 地址（base58 格式）
-		Tokens: map[string][]string{
+		Tokens:    map[string][]string{
 			// solAddress: {"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"}, // USDC 示例 Token Mint 地址
 		},
 		// Solana 链支持的模式：processed|confirmed|finalized

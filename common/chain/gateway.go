@@ -6,6 +6,8 @@ import (
 
 	"github.com/reguluswee/walletus/common/chain/dep"
 	"github.com/reguluswee/walletus/common/chain/evm"
+	"github.com/reguluswee/walletus/common/chain/solana"
+	"github.com/reguluswee/walletus/common/chain/tron"
 )
 
 type Gateway struct{}
@@ -22,6 +24,8 @@ type BalanceQuery struct {
 
 func init() {
 	evm.MustRegister()
+	tron.MustRegister()
+	solana.MustRegister()
 }
 
 func (g *Gateway) GetBalances(ctx context.Context, q BalanceQuery) (*dep.BatchBalanceResult, error) {
