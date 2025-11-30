@@ -10,27 +10,34 @@ import (
 	"github.com/reguluswee/walletus/cmd/modapi/common"
 	"github.com/reguluswee/walletus/cmd/modapi/security"
 	"github.com/reguluswee/walletus/common/log"
+	"github.com/reguluswee/walletus/common/model"
+	"github.com/reguluswee/walletus/common/system"
 
 	"github.com/gin-gonic/gin"
 )
 
+var NoAuthURLs = map[string]bool{
+	"/spwapi/admin/portal/login": true,
+}
+
 func TokenInterceptor() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if NoAuthURLs[c.Request.RequestURI] {
+			c.Next()
+			return
+		}
 		allHeaders, ok := c.Get("HEADERS")
 		if !ok {
 			log.Info("unable to get headers")
 			makeFaileRes(c, codes.CODE_ERR_SECURITY, "token check failed")
 			return
 		}
-		_ = allHeaders.(common.HeaderParam)
-		// if allHeadersMap.XAuth == "123456" {
-		// 	c.Set("user_wallet", "0x0")
-		// 	c.Set("user_id", "1")
-		// 	c.Next()
-		// 	return
-		// }
-		// log.Info("Token Parse:", allHeadersMap)
-		tokenStr := c.Request.Header.Get("XAUTH")
+		allHeader := allHeaders.(common.HeaderParam)
+
+		tokenStr := allHeader.XAuth
+		if tokenStr == "" {
+			tokenStr = allHeader.AuthToken
+		}
 		if tokenStr == "" {
 			if cookie, err := c.Request.Cookie("AUTH_TOKEN"); err == nil {
 				tokenStr = cookie.Value
@@ -43,11 +50,11 @@ func TokenInterceptor() gin.HandlerFunc {
 			return
 		}
 		tokenArr := strings.Split(token, "|")
-		if len(tokenArr) != 4 {
+		if len(tokenArr) != 3 {
 			makeFaileRes(c, codes.CODE_ERR_SECURITY, "token length error")
 			return
 		}
-		expireTs, err := strconv.ParseInt(tokenArr[3], 10, 64)
+		expireTs, err := strconv.ParseInt(tokenArr[2], 10, 64)
 		if err != nil {
 			makeFaileRes(c, codes.CODE_ERR_SECURITY, "token format error")
 			return
@@ -57,9 +64,17 @@ func TokenInterceptor() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("provider_type", tokenArr[2])
-		c.Set("provider_id", tokenArr[1])
-		c.Set("main_id", tokenArr[0])
+		mainIdStr := tokenArr[0]
+		var db = system.GetDb()
+		var portalUser model.PortalUser
+		db.Where("id = ?", mainIdStr).Find(&portalUser)
+		if portalUser.ID == 0 || portalUser.Flag != 0 {
+			makeFaileRes(c, codes.CODE_ERR_SECURITY, "user not existing")
+			return
+		}
+
+		c.Set("provider_type", tokenArr[1])
+		c.Set("main_user", &portalUser)
 
 		c.Next()
 	}

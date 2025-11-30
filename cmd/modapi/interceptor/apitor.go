@@ -19,8 +19,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var exception = []string{""}
-
 var cacheKeys []model.SysChannel
 var cacheValid = time.Now().Unix()
 
