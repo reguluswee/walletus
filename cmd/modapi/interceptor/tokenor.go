@@ -9,6 +9,7 @@ import (
 	"github.com/reguluswee/walletus/cmd/modapi/codes"
 	"github.com/reguluswee/walletus/cmd/modapi/common"
 	"github.com/reguluswee/walletus/cmd/modapi/security"
+	"github.com/reguluswee/walletus/cmd/modapi/service"
 	"github.com/reguluswee/walletus/common/log"
 	"github.com/reguluswee/walletus/common/model"
 	"github.com/reguluswee/walletus/common/system"
@@ -18,6 +19,17 @@ import (
 
 var NoAuthURLs = map[string]bool{
 	"/spwapi/admin/portal/login": true,
+}
+var unconfigURLs = map[string]bool{
+	"/spwapi/admin/portal/rbac/user/menus": true,
+	"/spwapi/admin/portal/rbac/func/list":  true,
+}
+
+var splitRequestingForGrants = []string{
+	"/spwapi/admin/portal/rbac/role/permission/func/bind",
+	"/spwapi/admin/portal/rbac/role/permission/user/bind",
+	"/spwapi/admin/portal/rbac/role/permission/func/unbind",
+	"/spwapi/admin/portal/rbac/role/permission/user/unbind",
 }
 
 func TokenInterceptor() gin.HandlerFunc {
@@ -71,6 +83,44 @@ func TokenInterceptor() gin.HandlerFunc {
 		if portalUser.ID == 0 || portalUser.Flag != 0 {
 			makeFaileRes(c, codes.CODE_ERR_SECURITY, "user not existing")
 			return
+		}
+
+		if !service.IsSuperAdmin(&portalUser) {
+			// check permission
+			var resUriRequesting = c.Request.RequestURI
+			var portalFuncs []model.PortalFunc
+			err = db.Table("admin_portal_function f").
+				Joins("JOIN admin_portal_role_func rf ON f.id = rf.func_id").
+				Joins("JOIN admin_portal_user_role ur ON rf.role_id = ur.role_id").
+				Where("ur.user_id = ?", portalUser.ID).
+				Distinct().
+				Find(&portalFuncs).Error
+
+			for _, v := range splitRequestingForGrants {
+				if strings.HasPrefix(resUriRequesting, v) {
+					resUriRequesting = strings.TrimPrefix(v, "/spwapi")
+					break
+				}
+			}
+			var portalFuncRequesting model.PortalFunc
+			db.Where("res_uri = ?", strings.TrimPrefix(resUriRequesting, "/spwapi")).Find(&portalFuncRequesting)
+			if portalFuncRequesting.ID > 0 {
+				var isIn bool = false
+				if unconfigURLs[c.Request.RequestURI] {
+					isIn = true
+				} else {
+					for _, portalFunc := range portalFuncs {
+						if portalFuncRequesting.PermCode == portalFunc.PermCode {
+							isIn = true
+							break
+						}
+					}
+				}
+				if !isIn {
+					makeFaileRes(c, codes.CODE_ERR_PERMISSION, "insufficient permissions")
+					return
+				}
+			}
 		}
 
 		c.Set("provider_type", tokenArr[1])

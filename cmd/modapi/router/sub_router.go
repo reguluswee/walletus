@@ -20,6 +20,22 @@ func SubRouters(e *gin.RouterGroup) {
 
 	adminGroup := e.Group("/admin", interceptor.TokenInterceptor())
 	adminGroup.POST("/portal/login", portal.PortalLogin)
+
+	adminGroup.GET("/portal/rbac/user/menus", portal.PortalUserMenus)
+
+	adminGroup.GET("/portal/rbac/role/list", portal.PortalRoleList)
+	adminGroup.POST("/portal/rbac/role/create", portal.PortalRoleCreate)
+	adminGroup.POST("/portal/rbac/role/update", portal.PortalRoleUpdate)
+	adminGroup.POST("/portal/rbac/role/delete", portal.PortalRoleDelete)
+	adminGroup.GET("/portal/rbac/func/list", portal.PortalFuncList)
+
+	adminGroup.GET("/portal/rbac/role/func/list/:role_id", portal.PortalRoleFuncList)
+	adminGroup.GET("/portal/rbac/role/user/list/:role_id", portal.PortalRoleUserList)
+	adminGroup.POST("/portal/rbac/role/permission/func/bind/:role_id/:func_id", portal.PortalRoleFuncBind)
+	adminGroup.POST("/portal/rbac/role/permission/user/bind/:role_id/:user_id", portal.PortalRoleUserBind)
+	adminGroup.POST("/portal/rbac/role/permission/func/unbind/:role_id/:func_id", portal.PortalRoleFuncUnbind)
+	adminGroup.POST("/portal/rbac/role/permission/user/unbind/:role_id/:user_id", portal.PortalRoleUserUnbind)
+
 	adminGroup.GET("/portal/dashboard", portal.PortalDashboard)
 	adminGroup.GET("/portal/dept/list", portal.PortalDeptList)
 	adminGroup.POST("/portal/dept/create", portal.PortalDeptCreate)

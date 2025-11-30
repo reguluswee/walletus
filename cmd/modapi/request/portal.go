@@ -23,3 +23,8 @@ type PortalUserUpdateRequest struct {
 	Location string   `json:"location"`
 	DeptIDs  []uint64 `json:"dept_ids"`
 }
+
+type PortalRoleCreateRequest struct {
+	ID   uint64 `json:"id"`
+	Name string `json:"name" binding:"required"`
+}
