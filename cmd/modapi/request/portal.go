@@ -49,7 +49,7 @@ type PortalPayrollCreateRequest struct {
 
 type PortalPayrollStaffWalletRequest struct {
 	UserID        uint64 `json:"user_id" binding:"required"`
-	WalletAddress string `json:"wallet_address" binding:"required"`
-	WalletType    string `json:"wallet_type" binding:"required"`
-	WalletChain   string `json:"wallet_chain" binding:"required"`
+	WalletAddress string `json:"wallet_address"`
+	WalletType    string `json:"wallet_type"`
+	WalletChain   string `json:"wallet_chain"`
 }
