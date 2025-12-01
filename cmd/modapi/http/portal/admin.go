@@ -2,8 +2,10 @@ package portal
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
@@ -14,6 +16,8 @@ import (
 	"github.com/reguluswee/walletus/cmd/modapi/security"
 	"github.com/reguluswee/walletus/common/model"
 	"github.com/reguluswee/walletus/common/system"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const UserLoginTypeMain = 0
@@ -371,4 +375,514 @@ func PortalUserUpdate(c *gin.Context) {
 	res.Code = codes.CODE_SUCCESS
 	res.Msg = "success"
 	c.JSON(http.StatusOK, res)
+}
+
+func PortalPayrollList(c *gin.Context) {
+	res := common.Response{}
+	res.Timestamp = time.Now().Unix()
+
+	res.Code = codes.CODE_SUCCESS
+	res.Msg = "success"
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	var db = system.GetDb()
+	var payrollList []model.PortalPayroll
+	db.Where("flag = ?", 0).Order("roll_month DESC").Find(&payrollList)
+
+	res.Data = gin.H{
+		"payroll_list": payrollList,
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+func PortalPayrollCreate(c *gin.Context) {
+	var request request.PortalPayrollCreateRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, common.Response{
+			Code:      codes.CODE_ERR_REQFORMAT,
+			Msg:       "invalid request: " + err.Error(),
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if !isValidYearMonth(request.RollMonth) {
+		res.Code = codes.CODE_ERR_REQFORMAT
+		res.Msg = "payroll month must be in format YYYY-MM"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	db := system.GetDb()
+
+	newPayroll := model.PortalPayroll{
+		RollMonth:   request.RollMonth,
+		TotalAmount: request.TotalAmount,
+		Flag:        0,
+		CreatorID:   portalUser.ID,
+		AddTime:     time.Now(),
+		Status:      "create",
+	}
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Insert{Modifier: "IGNORE"}).Create(&newPayroll).Error; err != nil {
+			return err
+		}
+
+		if newPayroll.ID == 0 {
+			return fmt.Errorf("payroll month already exists")
+		}
+
+		if len(request.Items) > 0 {
+			var payslips []model.PortalPayslip
+			for _, item := range request.Items {
+				payslips = append(payslips, model.PortalPayslip{
+					PayrollID:     newPayroll.ID,
+					UserID:        item.UserID,
+					WalletAddress: item.WalletAddress,
+					WalletType:    item.WalletType,
+					WalletChain:   item.WalletChain,
+					Amount:        item.Amount,
+					Flag:          0,
+					TransTime:     time.Now(),
+					ReceiptHash:   "",
+				})
+			}
+			if err := tx.Create(&payslips).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		if err.Error() == "payroll month already exists" {
+			res.Code = codes.CODE_ERR_REPEAT
+			res.Msg = err.Error()
+		} else {
+			res.Code = codes.CODE_ERR_UNKNOWN
+			res.Msg = "db error: " + err.Error()
+		}
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	res.Data = gin.H{
+		"payroll": newPayroll,
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+func PortalPayrollUpdate(c *gin.Context) {
+	var request request.PortalPayrollCreateRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, common.Response{
+			Code:      codes.CODE_ERR_REQFORMAT,
+			Msg:       "invalid request: " + err.Error(),
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if !isValidYearMonth(request.RollMonth) {
+		res.Code = codes.CODE_ERR_REQFORMAT
+		res.Msg = "payroll month must be in format YYYY-MM"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	db := system.GetDb()
+
+	var payroll model.PortalPayroll
+	if err := db.First(&payroll, request.ID).Error; err != nil {
+		res.Code = codes.CODE_ERR_EXIST_OBJ
+		res.Msg = "payroll not found"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if payroll.Status != "create" {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "payroll status must be create"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		payroll.RollMonth = request.RollMonth
+		payroll.TotalAmount = request.TotalAmount
+		payroll.Status = request.Status
+		if err := tx.Save(&payroll).Error; err != nil {
+			return err
+		}
+
+		// Delete existing payslips
+		if err := tx.Where("payroll_id = ?", payroll.ID).Delete(&model.PortalPayslip{}).Error; err != nil {
+			return err
+		}
+
+		// Insert new payslips
+		if len(request.Items) > 0 {
+			var payslips []model.PortalPayslip
+			for _, item := range request.Items {
+				payslips = append(payslips, model.PortalPayslip{
+					PayrollID:     payroll.ID,
+					UserID:        item.UserID,
+					WalletAddress: item.WalletAddress,
+					WalletType:    item.WalletType,
+					WalletChain:   item.WalletChain,
+					Amount:        item.Amount,
+					Flag:          0,
+					TransTime:     time.Now(),
+					ReceiptHash:   "",
+				})
+			}
+			if err := tx.Create(&payslips).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to update payroll: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	res.Data = gin.H{
+		"payroll": payroll,
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+func PortalPayrollDelete(c *gin.Context) {
+	var request request.PortalPayrollCreateRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, common.Response{
+			Code:      codes.CODE_ERR_REQFORMAT,
+			Msg:       "invalid request: " + err.Error(),
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if !isValidYearMonth(request.RollMonth) {
+		res.Code = codes.CODE_ERR_REQFORMAT
+		res.Msg = "payroll month must be in format YYYY-MM"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	db := system.GetDb()
+
+	var payroll model.PortalPayroll
+	if err := db.First(&payroll, request.ID).Error; err != nil {
+		res.Code = codes.CODE_ERR_EXIST_OBJ
+		res.Msg = "payroll not found"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if payroll.Status != "create" {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "payroll status must be create"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	payroll.Flag = 1
+	if err := db.Save(&payroll).Error; err != nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to update payroll: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+type WithWalletStaff struct {
+	model.PortalUser
+	WalletAddress string `gorm:"column:wallet_address;not null" json:"wallet_address"`
+	WalletType    string `gorm:"column:wallet_type;not null" json:"wallet_type"`
+	WalletChain   string `gorm:"column:wallet_chain;not null" json:"wallet_chain"`
+}
+
+func PortalPayrollStaffList(c *gin.Context) {
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	var staffs []WithWalletStaff
+	var db = system.GetDb()
+	err := db.Table("admin_portal_user u").
+		Joins("LEFT JOIN admin_portal_user_wallet w ON u.id = w.user_id").
+		Select("u.*, w.wallet_address, w.wallet_type, w.wallet_chain").
+		Where("u.flag = 0").
+		Find(&staffs).Error
+	if err != nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to query payroll staff list: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	res.Data = gin.H{
+		"staff_list": staffs,
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+func PortalPayrollStaffWallet(c *gin.Context) {
+	var request request.PortalPayrollStaffWalletRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, common.Response{
+			Code:      codes.CODE_ERR_REQFORMAT,
+			Msg:       "invalid request: " + err.Error(),
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	loginUser, ok := mainUser.(*model.PortalUser)
+	if !ok || loginUser == nil || loginUser.ID == 0 {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	userIDStr := c.Param("user_id")
+
+	userID, err := strconv.ParseUint(userIDStr, 10, 64)
+	if err != nil || userID == 0 {
+		res.Code = codes.CODE_ERR_UNKNOWN
+		res.Msg = "invalid user_id"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	db := system.GetDb()
+
+	var bindUser model.PortalUser
+	if err := db.First(&bindUser, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			res.Code = codes.CODE_ERR_OBJ_NOT_FOUND
+			res.Msg = "user not existing"
+		} else {
+			res.Code = codes.CODE_ERR_UNKNOWN
+			res.Msg = "db error"
+		}
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	var bindWallet model.PortalUserWallet
+	db.Where("user_id = ? and flag = 0", bindUser.ID).First(&bindWallet)
+	bindWallet.WalletAddress = request.WalletAddress
+	bindWallet.WalletType = request.WalletType
+	bindWallet.WalletChain = request.WalletChain
+	bindWallet.Flag = 0
+	bindWallet.UserID = bindUser.ID
+	bindWallet.AddTime = time.Now()
+	if err := db.Save(&bindWallet).Error; err != nil {
+		res.Code = codes.CODE_ERR_UNKNOWN
+		res.Msg = "failed to update wallet: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	res.Code = codes.CODE_SUCCESS
+	res.Msg = "success"
+	c.JSON(http.StatusOK, res)
+}
+
+type PortalPayslipDetail struct {
+	model.PortalPayslip
+	UserName  string `json:"user_name"`
+	UserEmail string `json:"user_email"`
+}
+
+func PortalPayrollDetail(c *gin.Context) {
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	payrollIDStr := c.Param("payroll_id")
+	payrollID, err := strconv.ParseUint(payrollIDStr, 10, 64)
+	if err != nil || payrollID == 0 {
+		res.Code = codes.CODE_ERR_REQFORMAT
+		res.Msg = "invalid payroll_id"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	db := system.GetDb()
+
+	var payroll model.PortalPayroll
+	if err := db.First(&payroll, payrollID).Error; err != nil {
+		res.Code = codes.CODE_ERR_OBJ_NOT_FOUND
+		res.Msg = "payroll not found"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	var items []PortalPayslipDetail
+	err = db.Table("admin_portal_payslip p").
+		Joins("LEFT JOIN admin_portal_user u ON p.user_id = u.id").
+		Select("p.*, u.name as user_name, u.email as user_email").
+		Where("p.payroll_id = ?", payroll.ID).
+		Find(&items).Error
+	if err != nil {
+		res.Code = codes.CODE_ERR_UNKNOWN
+		res.Msg = "failed to query payslips: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	res.Data = gin.H{
+		"payroll": payroll,
+		"items":   items,
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+/******** private method **********/
+func isValidYearMonth(s string) bool {
+	t, err := time.Parse("2006-01", s)
+	if err != nil {
+		return false
+	}
+
+	return t.Format("2006-01") == s
 }

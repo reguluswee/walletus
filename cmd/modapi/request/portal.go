@@ -1,5 +1,7 @@
 package request
 
+import "github.com/shopspring/decimal"
+
 type PortalLoginRequest struct {
 	LoginID  string `json:"login_id"`
 	Password string `json:"password"`
@@ -27,4 +29,27 @@ type PortalUserUpdateRequest struct {
 type PortalRoleCreateRequest struct {
 	ID   uint64 `json:"id"`
 	Name string `json:"name" binding:"required"`
+}
+
+type PortalPayslipItem struct {
+	UserID        uint64          `json:"user_id" binding:"required"`
+	WalletAddress string          `json:"wallet_address" binding:"required"`
+	WalletType    string          `json:"wallet_type" binding:"required"`
+	WalletChain   string          `json:"wallet_chain" binding:"required"`
+	Amount        decimal.Decimal `json:"amount" binding:"required"`
+}
+
+type PortalPayrollCreateRequest struct {
+	ID          uint64              `json:"id"`
+	RollMonth   string              `json:"roll_month" binding:"required"`
+	TotalAmount decimal.Decimal     `json:"total_amount" binding:"required"`
+	Status      string              `json:"status"`
+	Items       []PortalPayslipItem `json:"items"`
+}
+
+type PortalPayrollStaffWalletRequest struct {
+	UserID        uint64 `json:"user_id" binding:"required"`
+	WalletAddress string `json:"wallet_address" binding:"required"`
+	WalletType    string `json:"wallet_type" binding:"required"`
+	WalletChain   string `json:"wallet_chain" binding:"required"`
 }
