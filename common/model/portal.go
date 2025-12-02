@@ -76,6 +76,7 @@ type PortalFunc struct {
 	ResURI   string `gorm:"column:res_uri;type:varchar(255);not null" json:"res_uri"`
 	PermCode string `gorm:"column:perm_code;type:varchar(255);not null" json:"perm_code"`
 	Type     string `gorm:"column:type;type:varchar(255);not null" json:"type"`
+	Group    string `gorm:"column:group;type:varchar(255);not null" json:"group"`
 }
 
 func (PortalFunc) TableName() string {
