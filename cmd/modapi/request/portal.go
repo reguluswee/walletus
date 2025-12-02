@@ -49,11 +49,13 @@ type PortalPayslipItem struct {
 }
 
 type PortalPayrollCreateRequest struct {
-	ID          uint64              `json:"id"`
-	RollMonth   string              `json:"roll_month"`
-	TotalAmount decimal.Decimal     `json:"total_amount"`
-	Status      string              `json:"status"`
+	ID          uint64          `json:"id"`
+	RollMonth   string          `json:"roll_month"`
+	TotalAmount decimal.Decimal `json:"total_amount"`
+	Status      string          `json:"status"`
+	Desc        string
 	Items       []PortalPayslipItem `json:"items"`
+	Op          string              `json:"op"`
 }
 
 type PortalPayrollStaffWalletRequest struct {

@@ -18,7 +18,6 @@ import (
 	"github.com/reguluswee/walletus/common/system"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 const UserLoginTypeMain = 0
@@ -599,14 +598,23 @@ func PortalPayrollCreate(c *gin.Context) {
 	}
 
 	err := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Clauses(clause.Insert{Modifier: "IGNORE"}).Create(&newPayroll).Error; err != nil {
+		var existingPayroll model.PortalPayroll
+		result := tx.
+			Where("roll_month = ?", request.RollMonth).
+			Where("status <> ?", "rejected").
+			First(&existingPayroll)
+		if result.Error == nil {
+			return fmt.Errorf("payroll for month %s already exists and is not in 'rejected' status (ID: %d)",
+				request.RollMonth, existingPayroll.ID)
+		}
+
+		if result.Error != gorm.ErrRecordNotFound {
+			return fmt.Errorf("failed to check existing payroll: %w", result.Error)
+		}
+
+		if err := tx.Create(&newPayroll).Error; err != nil {
 			return err
 		}
-
-		if newPayroll.ID == 0 {
-			return fmt.Errorf("payroll month already exists")
-		}
-
 		if len(request.Items) > 0 {
 			var payslips []model.PortalPayslip
 			for _, item := range request.Items {
@@ -635,7 +643,7 @@ func PortalPayrollCreate(c *gin.Context) {
 			res.Msg = err.Error()
 		} else {
 			res.Code = codes.CODE_ERR_UNKNOWN
-			res.Msg = "db error: " + err.Error()
+			res.Msg = err.Error()
 		}
 		c.JSON(http.StatusOK, res)
 		return
@@ -870,7 +878,149 @@ func PortalPayrollSubmit(c *gin.Context) {
 		return
 	}
 
+	if len(request.Desc) > 0 {
+		payroll.Desc = payroll.Desc + "\n" + request.Desc
+	}
 	payroll.Status = "waiting_approval"
+	if err := db.Save(&payroll).Error; err != nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to update payroll: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+func PortalPayrollAudit(c *gin.Context) {
+	var request request.PortalPayrollCreateRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, common.Response{
+			Code:      codes.CODE_ERR_REQFORMAT,
+			Msg:       "invalid request: " + err.Error(),
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	db := system.GetDb()
+
+	var payroll model.PortalPayroll
+	if err := db.First(&payroll, request.ID).Error; err != nil {
+		res.Code = codes.CODE_ERR_EXIST_OBJ
+		res.Msg = "payroll not found"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if payroll.Status != "waiting_approval" {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "payroll status must be waiting_approval"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if len(request.Desc) > 0 {
+		if len(payroll.Desc) == 0 {
+			payroll.Desc = request.Desc
+		} else {
+			payroll.Desc = payroll.Desc + "\n" + request.Desc
+		}
+	}
+	switch request.Op {
+	case "approve":
+		payroll.Status = "approved"
+	case "reject":
+		payroll.Status = "rejected"
+	default:
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "invalid op"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if err := db.Save(&payroll).Error; err != nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to update payroll: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+func PortalPayrollPay(c *gin.Context) {
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	var request struct {
+		ID uint64 `json:"id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "invalid request: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	db := system.GetDb()
+
+	var payroll model.PortalPayroll
+	if err := db.First(&payroll, request.ID).Error; err != nil {
+		res.Code = codes.CODE_ERR_EXIST_OBJ
+		res.Msg = "payroll not found"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if payroll.Status != "approved" {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "payroll status must be approved"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	payroll.Status = "paid"
+	payroll.PayTime = time.Now()
 	if err := db.Save(&payroll).Error; err != nil {
 		res.Code = codes.CODE_ERR_STATUS_GENERAL
 		res.Msg = "failed to update payroll: " + err.Error()
@@ -1071,6 +1221,49 @@ func PortalPayrollDetail(c *gin.Context) {
 		"payroll": payroll,
 		"items":   items,
 	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+type PersonlPayslip struct {
+	model.PortalPayslip
+	RollMonth string    `gorm:"column:roll_month;type:varchar(255);not null" json:"roll_month"`
+	Status    string    `gorm:"column:status;type:varchar(255);not null" json:"status"`
+	PayTime   time.Time `gorm:"column:pay_time" json:"pay_time"`
+}
+
+func PortalPayslipList(c *gin.Context) {
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	var result []PersonlPayslip
+	var db = system.GetDb()
+	db.Table("admin_portal_payslip ps").
+		Joins("JOIN admin_portal_payroll pr ON ps.payroll_id = pr.id").
+		Where("pr.status <> 'rejected' AND pr.flag = 0 AND ps.user_id = ? and ps.flag = 0", portalUser.ID).
+		Select("ps.*, pr.roll_month, pr.status, pr.pay_time").
+		Order("pr.roll_month desc").
+		Find(&result)
+
+	res.Data = result
 
 	c.JSON(http.StatusOK, res)
 }

@@ -110,6 +110,8 @@ type PortalPayroll struct {
 	TotalAmount decimal.Decimal `gorm:"column:total_amount;type:decimal(18,2);not null" json:"total_amount"`
 	Status      string          `gorm:"column:status;type:varchar(255);not null" json:"status"`
 	AddTime     time.Time       `gorm:"column:add_time" json:"add_time"`
+	Desc        string          `gorm:"column:desc;type:varchar(255);not null" json:"desc"`
+	PayTime     time.Time       `gorm:"column:pay_time" json:"pay_time"`
 }
 
 func (PortalPayroll) TableName() string {
