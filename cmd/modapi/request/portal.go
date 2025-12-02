@@ -18,6 +18,15 @@ type PortalDeptUpdateRequest struct {
 	Desc string `json:"desc" binding:"required"`
 }
 
+type PortalUserAddRequest struct {
+	Name     string   `json:"name" binding:"required"`
+	LoginID  string   `json:"login_id"`
+	Email    string   `json:"email"`
+	Location string   `json:"location"`
+	DeptIDs  []uint64 `json:"dept_ids"`
+	Password string   `json:"password"`
+}
+
 type PortalUserUpdateRequest struct {
 	ID       uint64   `json:"id" binding:"required"`
 	Name     string   `json:"name" binding:"required"`
@@ -41,8 +50,8 @@ type PortalPayslipItem struct {
 
 type PortalPayrollCreateRequest struct {
 	ID          uint64              `json:"id"`
-	RollMonth   string              `json:"roll_month" binding:"required"`
-	TotalAmount decimal.Decimal     `json:"total_amount" binding:"required"`
+	RollMonth   string              `json:"roll_month"`
+	TotalAmount decimal.Decimal     `json:"total_amount"`
 	Status      string              `json:"status"`
 	Items       []PortalPayslipItem `json:"items"`
 }

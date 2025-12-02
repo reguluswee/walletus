@@ -16,6 +16,7 @@ import (
 	"github.com/reguluswee/walletus/cmd/modapi/security"
 	"github.com/reguluswee/walletus/common/model"
 	"github.com/reguluswee/walletus/common/system"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -88,6 +89,36 @@ func PortalDashboard(c *gin.Context) {
 
 	res.Code = codes.CODE_SUCCESS
 	res.Msg = "success"
+
+	var db = system.GetDb()
+	var countPortalUsers, countPortalDepts int64
+	var countPendingPayrolls int64
+	var countAmountForPendingPayrolls decimal.Decimal
+
+	var payrollsPending []model.PortalPayroll
+	db.Model(&model.PortalUser{}).
+		Where("flag = ?", 0).
+		Count(&countPortalUsers)
+	db.Model(&model.PortalDept{}).
+		Where("flag = ?", 0).
+		Count(&countPortalDepts)
+	db.Model(&model.PortalPayroll{}).
+		Where("flag = ? and status = 'waiting_approval'", 0).
+		Find(&payrollsPending)
+
+	for _, payroll := range payrollsPending {
+		countPendingPayrolls++
+		countAmountForPendingPayrolls = payroll.TotalAmount.Add(payroll.TotalAmount)
+	}
+
+	res.Data = gin.H{
+		"count_portal_users": countPortalUsers,
+		"count_portal_depts": countPortalDepts,
+		"count_payrolls": gin.H{
+			"count":  countPendingPayrolls,
+			"amount": countAmountForPendingPayrolls,
+		},
+	}
 
 	c.JSON(http.StatusOK, res)
 }
@@ -264,6 +295,7 @@ func PortalUserList(c *gin.Context) {
 
 	err := db.
 		Table("admin_portal_user u").
+		Where("flag = ?", 0).
 		Select(`
         u.id,
         u.name,
@@ -377,6 +409,106 @@ func PortalUserUpdate(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+func PortalUserAdd(c *gin.Context) {
+	var req request.PortalUserAddRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, common.Response{
+			Code:      codes.CODE_ERR_REQFORMAT,
+			Msg:       "invalid request: " + err.Error(),
+			Data:      nil,
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+	res := common.Response{}
+	res.Timestamp = time.Now().Unix()
+
+	db := system.GetDb()
+	tx := db.Begin()
+
+	var user model.PortalUser
+	user.Name = req.Name
+	user.Email = req.Email
+	user.Location = req.Location
+	user.LoginID = req.LoginID
+	user.Password = req.Password
+	user.AddTime = time.Now()
+	user.Type = "common"
+	if err := tx.Save(&user).Error; err != nil {
+		tx.Rollback()
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to update user: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	// 2. Insert new associations
+	for _, deptID := range req.DeptIDs {
+		deptUser := model.PortalDeptUser{
+			UserID: user.ID,
+			DeptID: deptID,
+		}
+		if err := tx.Create(&deptUser).Error; err != nil {
+			tx.Rollback()
+			res.Code = codes.CODE_ERR_STATUS_GENERAL
+			res.Msg = "failed to add department: " + err.Error()
+			c.JSON(http.StatusOK, res)
+			return
+		}
+	}
+
+	tx.Commit()
+
+	res.Code = codes.CODE_SUCCESS
+	res.Msg = "success"
+	c.JSON(http.StatusOK, res)
+}
+
+func PortalUserDelete(c *gin.Context) {
+	res := common.Response{}
+	res.Timestamp = time.Now().Unix()
+
+	db := system.GetDb()
+	tx := db.Begin()
+
+	var user model.PortalUser
+	if err := tx.First(&user, c.Param("user_id")).Error; err != nil {
+		tx.Rollback()
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to find user: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	if user.Type == "super_admin" {
+		tx.Rollback()
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "super admin cannot be deleted"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	if err := tx.Where("user_id = ?", user.ID).Delete(&model.PortalDeptUser{}).Error; err != nil {
+		tx.Rollback()
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to clear old departments: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	user.Flag = 1
+	if err := tx.Save(&user).Error; err != nil {
+		tx.Rollback()
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to delete user: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	tx.Commit()
+
+	res.Code = codes.CODE_SUCCESS
+	res.Msg = "success"
+	c.JSON(http.StatusOK, res)
+}
+
 func PortalPayrollList(c *gin.Context) {
 	res := common.Response{}
 	res.Timestamp = time.Now().Unix()
@@ -399,9 +531,15 @@ func PortalPayrollList(c *gin.Context) {
 		return
 	}
 
+	status := c.Query("status")
+
 	var db = system.GetDb()
 	var payrollList []model.PortalPayroll
-	db.Where("flag = ?", 0).Order("roll_month DESC").Find(&payrollList)
+	query := db.Where("flag = ?", 0)
+	if len(status) > 0 {
+		query = query.Where("status = ?", status)
+	}
+	query.Order("roll_month DESC").Find(&payrollList)
 
 	res.Data = gin.H{
 		"payroll_list": payrollList,
@@ -673,6 +811,66 @@ func PortalPayrollDelete(c *gin.Context) {
 	}
 
 	payroll.Flag = 1
+	if err := db.Save(&payroll).Error; err != nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to update payroll: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+func PortalPayrollSubmit(c *gin.Context) {
+	var request request.PortalPayrollCreateRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, common.Response{
+			Code:      codes.CODE_ERR_REQFORMAT,
+			Msg:       "invalid request: " + err.Error(),
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	db := system.GetDb()
+
+	var payroll model.PortalPayroll
+	if err := db.First(&payroll, request.ID).Error; err != nil {
+		res.Code = codes.CODE_ERR_EXIST_OBJ
+		res.Msg = "payroll not found"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if payroll.Status != "create" {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "payroll status must be create"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	payroll.Status = "waiting_approval"
 	if err := db.Save(&payroll).Error; err != nil {
 		res.Code = codes.CODE_ERR_STATUS_GENERAL
 		res.Msg = "failed to update payroll: " + err.Error()
