@@ -64,3 +64,10 @@ type PortalPayrollStaffWalletRequest struct {
 	WalletType    string `json:"wallet_type"`
 	WalletChain   string `json:"wallet_chain"`
 }
+
+type PortalTenantCreateRequest struct {
+	ID       uint64 `json:"id"`
+	Name     string `json:"name"`
+	Desc     string `json:"desc"`
+	Callback string `json:"callback"`
+}

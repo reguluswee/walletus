@@ -3,15 +3,17 @@ package model
 import "time"
 
 type Tenant struct {
-	ID            uint64    `gorm:"primaryKey;autoIncrement"`
+	ID            uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
 	UniqueID      string    `gorm:"column:unique_id;type:varchar(100);not null" json:"unique_id"`
 	Name          string    `gorm:"column:name;type:varchar(255);not null" json:"name"`
+	Desc          string    `gorm:"column:desc;type:varchar(500);not null" json:"desc"`
 	EncMasterXprv string    `gorm:"column:enc_master_xprv;type:varchar(1024);not null"`
 	EncMasterSeed string    `gorm:"column:enc_master_seed;type:varchar(2048);not null"`
 	KdfParams     string    `gorm:"column:kdf_params;type:varchar(255);not null"`
 	AddTime       time.Time `gorm:"column:add_time" json:"add_time"`
 	Version       string    `gorm:"column:version;type:varchar(255);not null" json:"version"`
 	Callback      string    `gorm:"column:call_back;type:varchar(255);not null" json:"call_back"`
+	Flag          uint8     `gorm:"column:flag;type:tinyint(1);not null" json:"flag"`
 }
 
 func (Tenant) TableName() string {

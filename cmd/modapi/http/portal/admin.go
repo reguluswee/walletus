@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	ethutil "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
 	"github.com/reguluswee/walletus/cmd/modapi/codes"
@@ -1133,6 +1134,13 @@ func PortalPayrollStaffWallet(c *gin.Context) {
 			res.Code = codes.CODE_ERR_UNKNOWN
 			res.Msg = "db error"
 		}
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if !ethutil.IsHexAddress(request.WalletAddress) {
+		res.Code = codes.CODE_ERR_UNKNOWN
+		res.Msg = "invalid wallet address"
 		c.JSON(http.StatusOK, res)
 		return
 	}
