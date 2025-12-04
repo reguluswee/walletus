@@ -136,3 +136,16 @@ type PortalPayslip struct {
 func (PortalPayslip) TableName() string {
 	return "admin_portal_payslip"
 }
+
+type PortalSpec struct {
+	ID        uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
+	SpecName  string    `gorm:"column:spec_name;type:varchar(255);not null" json:"spec_name"`
+	SpecValue string    `gorm:"column:spec_value;type:varchar(255);not null" json:"spec_value"`
+	SpecType  string    `gorm:"column:spec_type;type:varchar(255);not null" json:"spec_type"`
+	AddTime   time.Time `gorm:"column:add_time" json:"add_time"`
+	Flag      uint8     `gorm:"column:flag" json:"flag"`
+}
+
+func (PortalSpec) TableName() string {
+	return "admin_portal_spec"
+}
