@@ -60,9 +60,11 @@ func (PortalUserWallet) TableName() string {
 }
 
 type PortalRole struct {
-	ID   uint64 `gorm:"primaryKey;autoIncrement" json:"id"`
-	Name string `gorm:"column:name;type:varchar(255);not null" json:"name"`
-	Flag uint8  `gorm:"column:flag" json:"flag"`
+	ID      uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name    string    `gorm:"column:name;type:varchar(255);not null" json:"name"`
+	Desc    string    `gorm:"column:desc;type:varchar(255);not null" json:"desc"`
+	AddTime time.Time `gorm:"column:add_time" json:"add_time"`
+	Flag    uint8     `gorm:"column:flag" json:"flag"`
 }
 
 func (PortalRole) TableName() string {
