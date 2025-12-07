@@ -24,6 +24,13 @@ import (
 const UserLoginTypeMain = 0
 const UserLoginTypeWallet = 1
 
+const PayrollStatusCreate = "create"
+const PayrollStatusWaitingApproval = "waiting_approval"
+const PayrollStatusApproved = "approved"
+const PayrollStatusRejected = "rejected"
+const PayrollStatusPaid = "paid"
+const PayrollStatusPaying = "paying"
+
 func PortalLogin(c *gin.Context) {
 	var request request.PortalLoginRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -1020,6 +1027,25 @@ func PortalPayrollPay(c *gin.Context) {
 		return
 	}
 
+	var portalSpecs []model.PortalSpec
+	db.Where("flag = ? and spec_type = ?", 0, SPEC_TYPE_PAYROLL_SETTINGS).Find(&portalSpecs)
+	var result PayrollSettings
+	for _, spec := range portalSpecs {
+		switch spec.SpecName {
+		case "chain":
+			result.Chain = spec.SpecValue
+		case "pay_contract":
+			result.PayContract = spec.SpecValue
+		case "pay_token":
+			result.PayToken = spec.SpecValue
+		}
+	}
+	if !result.IsValid() {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "invalid payroll settings"
+		c.JSON(http.StatusOK, res)
+		return
+	}
 	payroll.Status = "paid"
 	payroll.PayTime = time.Now()
 	if err := db.Save(&payroll).Error; err != nil {

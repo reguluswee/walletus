@@ -21,6 +21,13 @@ type PayrollSettings struct {
 	PayToken    string `json:"pay_token"`
 }
 
+func (t PayrollSettings) IsValid() bool {
+	if t.Chain == "" || t.PayContract == "" || t.PayToken == "" {
+		return false
+	}
+	return true
+}
+
 func PortalPayrollSettings(c *gin.Context) {
 	res := common.Response{}
 	res.Timestamp = time.Now().Unix()
