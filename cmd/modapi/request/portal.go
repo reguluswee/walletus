@@ -38,6 +38,7 @@ type PortalUserUpdateRequest struct {
 type PortalRoleCreateRequest struct {
 	ID   uint64 `json:"id"`
 	Name string `json:"name" binding:"required"`
+	Desc string `json:"desc"`
 }
 
 type PortalPayslipItem struct {

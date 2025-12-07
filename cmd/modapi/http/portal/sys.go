@@ -71,3 +71,60 @@ func PortalPayrollSettings(c *gin.Context) {
 
 	c.JSON(http.StatusOK, res)
 }
+
+func PortalPayrollSettingsSave(c *gin.Context) {
+	var request PayrollSettings
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, common.Response{
+			Code:      codes.CODE_ERR_REQFORMAT,
+			Msg:       "invalid request: " + err.Error(),
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+	res := common.Response{}
+	res.Timestamp = time.Now().Unix()
+
+	var db = system.GetDb()
+	db.Where("flag = ? and spec_type = ?", 0, SPEC_TYPE_PAYROLL_SETTINGS).Delete(&model.PortalSpec{})
+
+	var portalSpec []model.PortalSpec
+	if request.Chain != "" {
+		portalSpec = append(portalSpec, model.PortalSpec{
+			SpecName:  "chain",
+			SpecValue: request.Chain,
+			SpecType:  SPEC_TYPE_PAYROLL_SETTINGS,
+			AddTime:   time.Now(),
+			Flag:      0,
+		})
+	}
+	if request.PayContract != "" {
+		portalSpec = append(portalSpec, model.PortalSpec{
+			SpecName:  "pay_contract",
+			SpecValue: request.PayContract,
+			SpecType:  SPEC_TYPE_PAYROLL_SETTINGS,
+			AddTime:   time.Now(),
+			Flag:      0,
+		})
+	}
+	if request.PayToken != "" {
+		portalSpec = append(portalSpec, model.PortalSpec{
+			SpecName:  "pay_token",
+			SpecValue: request.PayToken,
+			SpecType:  SPEC_TYPE_PAYROLL_SETTINGS,
+			AddTime:   time.Now(),
+			Flag:      0,
+		})
+	}
+	if len(portalSpec) > 0 {
+		err := db.Create(&portalSpec).Error
+		if err != nil {
+			res.Code = codes.CODE_ERR_UNKNOWN
+			res.Msg = "database error: " + err.Error()
+			c.JSON(http.StatusOK, res)
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, res)
+}

@@ -96,8 +96,10 @@ func PortalRoleCreate(c *gin.Context) {
 
 	db := system.GetDb()
 	var portalRole model.PortalRole = model.PortalRole{
-		Name: request.Name,
-		Flag: 0,
+		Name:    request.Name,
+		Flag:    0,
+		Desc:    request.Desc,
+		AddTime: time.Now(),
 	}
 	db.Create(&portalRole)
 
