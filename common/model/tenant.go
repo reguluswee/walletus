@@ -14,6 +14,7 @@ type Tenant struct {
 	Version       string    `gorm:"column:version;type:varchar(255);not null" json:"version"`
 	Callback      string    `gorm:"column:call_back;type:varchar(255);not null" json:"call_back"`
 	Flag          uint8     `gorm:"column:flag;type:tinyint(1);not null" json:"flag"`
+	APIID         uint64    `gorm:"column:api_id;type:int(11);not null" json:"api_id"`
 }
 
 func (Tenant) TableName() string {

@@ -27,22 +27,26 @@ const timeRange = 60
 var wg sync.Mutex
 
 const (
-	HTTP = "http"
-	WS   = "ws"
+	HTTP   = "http"
+	WS     = "ws"
+	TENANT = "tenant"
 )
 
 func HttpInterceptor() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		queryKeys(HTTP)
 		hp := parse(&c.Request.Header)
 
-		var targetChannel *model.SysChannel
-		for _, v := range cacheKeys {
-			if v.AppID == hp.AppId {
-				targetChannel = &v
-			}
-		}
-		if targetChannel == nil {
+		// queryKeys(HTTP)
+
+		// var targetChannel *model.SysChannel
+		// for _, v := range cacheKeys {
+		// 	if v.AppID == hp.AppId {
+		// 		targetChannel = &v
+		// 	}
+		// }
+
+		targetChannel, err := queryKeysByAppId(hp.AppId)
+		if err != nil {
 			c.Abort()
 			c.JSON(http.StatusOK, common.Response{
 				Code:      codes.CODE_ERR_APPID_INVALID,
@@ -65,26 +69,28 @@ func HttpInterceptor() gin.HandlerFunc {
 		c.Set("TS", hp.Ts)
 		c.Set("HEADERS", hp)
 
-		if hp.XAuth == "123456" {
-			c.Set("user_wallet", "0x0")
-			c.Set("user_id", "1")
-		} else {
-			token, err := security.Decrypt(hp.XAuth)
-			if err == nil {
+		var tenant model.Tenant
+		if targetChannel.Chan == TENANT {
+			var db = system.GetDb()
+			db.Where("api_id = ?", targetChannel.ID).First(&tenant)
+			c.Set("TENANTID", tenant.ID)
+		}
 
-				tokenArr := strings.Split(token, "|")
-				if len(tokenArr) == 4 {
-					expireTs, err := strconv.ParseInt(tokenArr[3], 10, 64)
-					if err == nil {
-						if time.Now().Unix()-expireTs <= int64(common.TOKEN_DURATION.Seconds()) {
-							c.Set("user_wallet", tokenArr[1])
-							c.Set("user_id", tokenArr[0])
-						}
+		token, err := security.Decrypt(hp.XAuth)
+		if err == nil {
+			tokenArr := strings.Split(token, "|")
+			if len(tokenArr) == 4 {
+				expireTs, err := strconv.ParseInt(tokenArr[3], 10, 64)
+				if err == nil {
+					if time.Now().Unix()-expireTs <= int64(common.TOKEN_DURATION.Seconds()) {
+						c.Set("user_wallet", tokenArr[1])
+						c.Set("user_id", tokenArr[0])
 					}
 				}
-
 			}
+
 		}
+
 		c.Next()
 	}
 }
@@ -106,6 +112,17 @@ func queryKeys(channel string) []model.SysChannel {
 	cacheValid = time.Now().Unix()
 	wg.Unlock()
 	return cacheKeys
+}
+
+func queryKeysByAppId(appId string) (*model.SysChannel, error) {
+	db := system.GetDb()
+	var result model.SysChannel
+	err := db.Model(&model.SysChannel{}).Where("app_id = ?", appId).Find(&result).Error
+	if err != nil {
+		log.Error("Channel Query Error:", err)
+		return nil, err
+	}
+	return &result, nil
 }
 
 func parse(h *http.Header) common.HeaderParam {

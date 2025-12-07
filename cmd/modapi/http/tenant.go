@@ -90,8 +90,15 @@ func TenantUpdate(c *gin.Context) {
 	res.Msg = "success"
 
 	var db = system.GetDb()
+	tenantId, exist := c.Get("TENANTID")
+	if !exist {
+		res.Code = codes.CODE_ERR_OBJ_NOT_FOUND
+		res.Msg = "tenant not existed"
+		c.JSON(http.StatusOK, res)
+		return
+	}
 	var tenant model.Tenant
-	db.Where("unique_id = ?", request.UniqueID).First(&tenant)
+	db.Where("id = ?", tenantId).First(&tenant)
 	if tenant.ID == 0 {
 		res.Code = codes.CODE_ERR_OBJ_NOT_FOUND
 		res.Msg = "tenant not existed"
@@ -101,11 +108,13 @@ func TenantUpdate(c *gin.Context) {
 
 	tenant.Name = request.Name
 	tenant.Callback = request.Callback
+	tenant.UniqueID = request.UniqueID
 	db.Save(&tenant)
 
 	res.Data = gin.H{
 		"tenant_id":        tenant.ID,
 		"tenant_unique_id": tenant.UniqueID,
+		"tenant_callback":  tenant.Callback,
 	}
 
 	c.JSON(http.StatusOK, res)

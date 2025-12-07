@@ -33,6 +33,7 @@ var splitRequestingForGrants = []string{
 	"/spwapi/admin/portal/payroll/staff/wallet",
 	"/spwapi/admin/portal/payroll/detail",
 	"/spwapi/admin/portal/user/delete",
+	"/spwapi/admin/portal/tenant/detail",
 }
 
 func TokenInterceptor() gin.HandlerFunc {

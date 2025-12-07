@@ -35,8 +35,16 @@ func WalletCreate(c *gin.Context) {
 	res.Msg = "success"
 
 	var db = system.GetDb()
+	tenantId, exist := c.Get("TENANTID")
+	if !exist {
+		res.Code = codes.CODE_ERR_OBJ_NOT_FOUND
+		res.Msg = "tenant not existed"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
 	var tenant model.Tenant
-	db.Where("id = ?", request.TenantID).First(&tenant)
+	db.Where("id = ?", tenantId).First(&tenant)
 	if tenant.ID == 0 {
 		res.Code = codes.CODE_ERR_OBJ_NOT_FOUND
 		res.Msg = "tenant not found"
