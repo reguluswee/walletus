@@ -890,6 +890,24 @@ func PortalPayrollSubmit(c *gin.Context) {
 	if len(request.Desc) > 0 {
 		payroll.Desc = payroll.Desc + "\n" + request.Desc
 	}
+
+	var payrollSlip []model.PortalPayslip
+	db.Where("payroll_id = ?", payroll.ID).Find(&payrollSlip)
+	if len(payrollSlip) == 0 {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "payroll has no payslip"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	for _, v := range payrollSlip {
+		if !ethutil.IsHexAddress(v.WalletAddress) {
+			res.Code = codes.CODE_ERR_STATUS_GENERAL
+			res.Msg = "there is invalid wallet address in payslip"
+			c.JSON(http.StatusOK, res)
+			return
+		}
+	}
+
 	payroll.Status = "waiting_approval"
 	if err := db.Save(&payroll).Error; err != nil {
 		res.Code = codes.CODE_ERR_STATUS_GENERAL
@@ -1302,6 +1320,64 @@ func PortalPayslipList(c *gin.Context) {
 
 	res.Data = result
 
+	c.JSON(http.StatusOK, res)
+}
+
+func PortalPayrollStaffDelete(c *gin.Context) {
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	payslipIDStr := c.Param("payslip_id")
+	payslipID, err := strconv.ParseUint(payslipIDStr, 10, 64)
+	if err != nil || payslipID == 0 {
+		res.Code = codes.CODE_ERR_REQFORMAT
+		res.Msg = "invalid payslip_id"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	db := system.GetDb()
+
+	var payslip model.PortalPayslip
+	if err := db.First(&payslip, payslipID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			res.Code = codes.CODE_ERR_OBJ_NOT_FOUND
+			res.Msg = "payslip not found"
+		} else {
+			res.Code = codes.CODE_ERR_UNKNOWN
+			res.Msg = "db error"
+		}
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if err := db.Delete(&payslip).Error; err != nil {
+		res.Code = codes.CODE_ERR_UNKNOWN
+		res.Msg = "failed to delete payslip: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	res.Code = codes.CODE_SUCCESS
+	res.Msg = "success"
 	c.JSON(http.StatusOK, res)
 }
 
