@@ -43,6 +43,7 @@ type PortalRoleCreateRequest struct {
 
 type PortalPayslipItem struct {
 	UserID        uint64          `json:"user_id" binding:"required"`
+	WalletID      uint64          `json:"wallet_id"`
 	WalletAddress string          `json:"wallet_address" binding:"required"`
 	WalletType    string          `json:"wallet_type" binding:"required"`
 	WalletChain   string          `json:"wallet_chain" binding:"required"`

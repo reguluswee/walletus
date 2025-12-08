@@ -740,6 +740,7 @@ func PortalPayrollUpdate(c *gin.Context) {
 				payslips = append(payslips, model.PortalPayslip{
 					PayrollID:     payroll.ID,
 					UserID:        item.UserID,
+					WalletID:      item.WalletID,
 					WalletAddress: item.WalletAddress,
 					WalletType:    item.WalletType,
 					WalletChain:   item.WalletChain,
@@ -1046,8 +1047,9 @@ func PortalPayrollPay(c *gin.Context) {
 		c.JSON(http.StatusOK, res)
 		return
 	}
+	var payTime = time.Now()
 	payroll.Status = "paid"
-	payroll.PayTime = time.Now()
+	payroll.PayTime = &payTime
 	if err := db.Save(&payroll).Error; err != nil {
 		res.Code = codes.CODE_ERR_STATUS_GENERAL
 		res.Msg = "failed to update payroll: " + err.Error()
@@ -1063,6 +1065,7 @@ type WithWalletStaff struct {
 	WalletAddress string `gorm:"column:wallet_address;not null" json:"wallet_address"`
 	WalletType    string `gorm:"column:wallet_type;not null" json:"wallet_type"`
 	WalletChain   string `gorm:"column:wallet_chain;not null" json:"wallet_chain"`
+	WalletID      uint64 `gorm:"column:wallet_id;not null" json:"wallet_id"`
 }
 
 func PortalPayrollStaffList(c *gin.Context) {
@@ -1091,7 +1094,7 @@ func PortalPayrollStaffList(c *gin.Context) {
 	var db = system.GetDb()
 	err := db.Table("admin_portal_user u").
 		Joins("LEFT JOIN admin_portal_user_wallet w ON u.id = w.user_id").
-		Select("u.*, w.wallet_address, w.wallet_type, w.wallet_chain").
+		Select("u.*, w.wallet_address, w.wallet_type, w.wallet_chain, w.id as wallet_id").
 		Where("u.flag = 0").
 		Find(&staffs).Error
 	if err != nil {
