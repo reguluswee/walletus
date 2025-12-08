@@ -59,6 +59,7 @@ func SubRouters(e *gin.RouterGroup) {
 	adminGroup.GET("/portal/payroll/detail/:payroll_id", portal.PortalPayrollDetail)
 	adminGroup.POST("/portal/payroll/staff/delete/:payslip_id", portal.PortalPayrollStaffDelete)
 	adminGroup.GET("/portal/payslip/list", portal.PortalPayslipList)
+	adminGroup.GET("/portal/payroll/status/check/:payroll_id", portal.PortalPayrollStatusCheck)
 
 	adminGroup.GET("/portal/tenant/list", portal.PortalTenantList)
 	adminGroup.POST("/portal/tenant/create", portal.PortalTenantCreate)

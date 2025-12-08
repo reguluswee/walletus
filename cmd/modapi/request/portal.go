@@ -61,7 +61,7 @@ type PortalPayrollCreateRequest struct {
 }
 
 type PortalPayrollStaffWalletRequest struct {
-	UserID        uint64 `json:"user_id" binding:"required"`
+	UserID        uint64 `json:"user_id"`
 	WalletAddress string `json:"wallet_address"`
 	WalletType    string `json:"wallet_type"`
 	WalletChain   string `json:"wallet_chain"`

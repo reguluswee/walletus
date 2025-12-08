@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,8 @@ import (
 	"github.com/reguluswee/walletus/cmd/modapi/common"
 	"github.com/reguluswee/walletus/cmd/modapi/request"
 	"github.com/reguluswee/walletus/cmd/modapi/security"
+	"github.com/reguluswee/walletus/common/bip"
+	"github.com/reguluswee/walletus/common/chain"
 	"github.com/reguluswee/walletus/common/model"
 	"github.com/reguluswee/walletus/common/system"
 	"github.com/shopspring/decimal"
@@ -597,7 +600,7 @@ func PortalPayrollCreate(c *gin.Context) {
 	db := system.GetDb()
 
 	newPayroll := model.PortalPayroll{
-		RollMonth:   formatPayrollMonth(request.RollMonth),
+		RollMonth:   (request.RollMonth),
 		TotalAmount: request.TotalAmount,
 		Flag:        0,
 		CreatorID:   portalUser.ID,
@@ -1250,6 +1253,28 @@ func PortalPayrollStaffWallet(c *gin.Context) {
 
 	db := system.GetDb()
 
+	var portalSpecs []model.PortalSpec
+	db.Where("flag = ? and spec_type = ?", 0, SPEC_TYPE_PAYROLL_SETTINGS).Find(&portalSpecs)
+
+	var result PayrollSettings
+	for _, spec := range portalSpecs {
+		switch spec.SpecName {
+		case "chain":
+			result.Chain = spec.SpecValue
+		case "pay_contract":
+			result.PayContract = spec.SpecValue
+		case "pay_token":
+			result.PayToken = spec.SpecValue
+		}
+	}
+
+	if !result.IsValid() {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "invalid payroll settings"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
 	var bindUser model.PortalUser
 	if err := db.First(&bindUser, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1273,8 +1298,8 @@ func PortalPayrollStaffWallet(c *gin.Context) {
 	var bindWallet model.PortalUserWallet
 	db.Where("user_id = ? and flag = 0", bindUser.ID).First(&bindWallet)
 	bindWallet.WalletAddress = request.WalletAddress
-	bindWallet.WalletType = request.WalletType
-	bindWallet.WalletChain = request.WalletChain
+	bindWallet.WalletType = "ERC20"
+	bindWallet.WalletChain = result.Chain
 	bindWallet.Flag = 0
 	bindWallet.UserID = bindUser.ID
 	bindWallet.AddTime = time.Now()
@@ -1459,14 +1484,124 @@ func PortalPayrollStaffDelete(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+func PortalPayrollStatusCheck(c *gin.Context) {
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	payrollIDStr := c.Param("payroll_id")
+	payrollID, err := strconv.ParseUint(payrollIDStr, 10, 64)
+	if err != nil || payrollID == 0 {
+		res.Code = codes.CODE_ERR_REQFORMAT
+		res.Msg = "invalid payroll_id"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	db := system.GetDb()
+
+	var payroll model.PortalPayroll
+	if err := db.First(&payroll, payrollID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			res.Code = codes.CODE_ERR_OBJ_NOT_FOUND
+			res.Msg = "payroll not found"
+		} else {
+			res.Code = codes.CODE_ERR_UNKNOWN
+			res.Msg = "db error:" + err.Error()
+		}
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if payroll.Status != "paying" {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "payroll status is not paying"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	// check transaction status on chain TODO
+	chainDef, err := bip.CheckValidChainCode(payroll.Chain)
+	if err != nil {
+		res.Code = codes.CODE_ERR_METHOD_UNSUPPORT
+		res.Msg = err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	gw := chain.NewGateway()
+	q := chain.TransactionQuery{
+		Chain:   chainDef,
+		Network: "mainnet",
+		TxHash:  payroll.TxHash,
+	}
+	receipt, err := gw.GetTransaction(context.Background(), q)
+	if err != nil {
+		res.Code = codes.CODE_ERR_UNKNOWN
+		res.Msg = "failed to get transaction: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	if receipt == nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "transaction not found or pending to block"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	m, ok := receipt.(map[string]interface{})
+	if !ok {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "invalid receipt type"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	var status any = m["status"].(string)
+	if status != "0x1" {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "transaction not confirmed"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	var payTime = time.Now()
+	payroll.Status = PayrollStatusPaid
+	payroll.PayTime = &payTime
+	if err := db.Save(&payroll).Error; err != nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to update payroll: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	res.Code = codes.CODE_SUCCESS
+	res.Msg = "success"
+	c.JSON(http.StatusOK, res)
+}
+
 /******** private method **********/
 func isValidYearMonth(s string) bool {
-	t, err := time.Parse("2006-01", s)
+	t, err := time.Parse("200601", s)
 	if err != nil {
 		return false
 	}
 
-	return t.Format("2006-01") == s
+	return t.Format("200601") == s
 }
 
 func formatPayrollMonth(s string) string {

@@ -20,6 +20,7 @@ var chains = []ChainDef{
 	{"POLYGON", 60},
 	{"TRON", 195},
 	{"SOLANA", 501},
+	{"BSC_TESTNET", 60},
 }
 
 var supportedEVMs = []ChainDef{
@@ -28,6 +29,7 @@ var supportedEVMs = []ChainDef{
 	{"OP", 60},
 	{"ARB", 60},
 	{"POLYGON", 60},
+	{"BSC_TESTNET", 60},
 }
 
 var supportedSol = ChainDef{

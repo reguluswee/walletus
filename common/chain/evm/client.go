@@ -212,6 +212,26 @@ func (c *EVMClient) TokenBalancesBatch(ctx context.Context, network string, addr
 	return v.(map[string][]dep.TokenBalance), nil
 }
 
+func (c *EVMClient) GetTransaction(ctx context.Context, network string, txHash string) (any, error) {
+	rc, _, err := c.pick(network)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx2, cancel := context.WithTimeout(ctx, c.reqTimeout)
+	defer cancel()
+
+	var receipt any
+
+	if err := rc.CallContext(ctx2, &receipt, "eth_getTransactionReceipt", txHash); err != nil {
+		return nil, err
+	}
+	if receipt == nil {
+		return nil, nil
+	}
+	return receipt, nil
+}
+
 // 注册（在 main 或 init 中）
 func MustRegister() {
 	for _, v := range dep.GetSupportedEVMs() {

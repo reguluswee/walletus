@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -388,6 +389,10 @@ func (c *TRXClient) getTRC20Balance(ctx context.Context, cli *httpClient, tokenA
 			Amount:   balance,
 		},
 	}, nil
+}
+
+func (c *TRXClient) GetTransaction(ctx context.Context, network string, txHash string) (any, error) {
+	return nil, errors.New("not implemented")
 }
 
 // encodeTRC20BalanceOfParameter 编码 balanceOf(address) 的参数

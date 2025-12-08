@@ -22,6 +22,12 @@ type BalanceQuery struct {
 	Consistency dep.Consistency
 }
 
+type TransactionQuery struct {
+	Chain   dep.ChainDef
+	Network string
+	TxHash  string
+}
+
 func init() {
 	evm.MustRegister()
 	tron.MustRegister()
@@ -67,4 +73,19 @@ func (g *Gateway) GetBalances(ctx context.Context, q BalanceQuery) (*dep.BatchBa
 		out.Results = append(out.Results, br)
 	}
 	return out, nil
+}
+
+func (g *Gateway) GetTransaction(ctx context.Context, q TransactionQuery) (any, error) {
+	client, ok := dep.GetClient(q.Chain)
+
+	if !ok {
+		return nil, dep.ErrUnsupportedChain
+	}
+
+	tx, err := client.GetTransaction(ctx, q.Chain.Name, q.TxHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
 }

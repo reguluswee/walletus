@@ -3,7 +3,6 @@ package dep
 import "context"
 
 type Reader interface {
-	// Anchor：根据一致性策略取“读锚点”，保证一次请求内的一致性
 	Anchor(ctx context.Context, network string, c Consistency) (AnchorRef, error)
 
 	// Single Query
@@ -13,6 +12,8 @@ type Reader interface {
 	// Batch Query
 	NativeBalanceBatch(ctx context.Context, network string, addresses []string, anchor AnchorRef) (map[string]*NativeBalance, error)
 	TokenBalancesBatch(ctx context.Context, network string, addressToTokens map[string][]string, anchor AnchorRef) (map[string][]TokenBalance, error)
+
+	GetTransaction(ctx context.Context, network string, txHash string) (any, error)
 }
 
 type Signer interface {

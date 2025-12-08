@@ -30,7 +30,7 @@ chain:
   - name: BSC_TESTNET
     wsRpc: 
     queryRpc:
-      - https://bsc-testnet.public.blastapi.io
+      - https://data-seed-prebsc-1-s1.bnbchain.org:8545
     slotParallel: 1
     txDetal: 200
     rangeRound: 200 

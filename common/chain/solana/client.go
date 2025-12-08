@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -454,6 +455,10 @@ func (c *SOLClient) getSPLTokenBalance(ctx context.Context, cli *rpcClient, owne
 			Amount:   totalAmount,
 		},
 	}, nil
+}
+
+func (c *SOLClient) GetTransaction(ctx context.Context, network string, txHash string) (any, error) {
+	return nil, errors.New("not implemented")
 }
 
 func MustRegister() {
