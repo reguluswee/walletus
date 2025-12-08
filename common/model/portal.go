@@ -115,6 +115,8 @@ type PortalPayroll struct {
 	AddTime     time.Time       `gorm:"column:add_time" json:"add_time"`
 	Desc        string          `gorm:"column:desc;type:varchar(255);not null" json:"desc"`
 	PayTime     *time.Time      `gorm:"column:pay_time" json:"pay_time"`
+	TxHash      string          `gorm:"column:tx_hash;type:varchar(255);not null" json:"tx_hash"`
+	Chain       string          `gorm:"column:chain;type:varchar(255);not null" json:"chain"`
 }
 
 func (PortalPayroll) TableName() string {

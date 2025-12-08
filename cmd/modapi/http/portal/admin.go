@@ -1020,7 +1020,8 @@ func PortalPayrollPay(c *gin.Context) {
 	}
 
 	var request struct {
-		ID uint64 `json:"id" binding:"required"`
+		ID     uint64 `json:"id" binding:"required"`
+		TxHash string `json:"tx_hash" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&request); err != nil {
 		res.Code = codes.CODE_ERR_STATUS_GENERAL
@@ -1065,14 +1066,87 @@ func PortalPayrollPay(c *gin.Context) {
 		c.JSON(http.StatusOK, res)
 		return
 	}
-	var payTime = time.Now()
-	payroll.Status = "paid"
-	payroll.PayTime = &payTime
+	payroll.Status = "paying"
+	payroll.TxHash = request.TxHash
+	payroll.Chain = result.Chain
 	if err := db.Save(&payroll).Error; err != nil {
 		res.Code = codes.CODE_ERR_STATUS_GENERAL
 		res.Msg = "failed to update payroll: " + err.Error()
 		c.JSON(http.StatusOK, res)
 		return
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+func PortalPayrollPayConfig(c *gin.Context) {
+	res := common.Response{
+		Timestamp: time.Now().Unix(),
+		Code:      codes.CODE_SUCCESS,
+		Msg:       "success",
+	}
+
+	mainUser, ok := c.Get("main_user")
+	if !ok {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	portalUser, ok := mainUser.(*model.PortalUser)
+	if !ok || portalUser == nil {
+		res.Code = codes.CODE_ERR_SECURITY
+		res.Msg = "please login first"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	var request struct {
+		ID uint64 `json:"id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "invalid request: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	db := system.GetDb()
+
+	var payroll model.PortalPayroll
+	if err := db.First(&payroll, request.ID).Error; err != nil {
+		res.Code = codes.CODE_ERR_EXIST_OBJ
+		res.Msg = "payroll not found"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	if payroll.Status != "approved" {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "payroll status must be approved"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	var portalSpecs []model.PortalSpec
+	db.Where("flag = ? and spec_type = ?", 0, SPEC_TYPE_PAYROLL_SETTINGS).Find(&portalSpecs)
+	var result PayrollSettings
+	for _, spec := range portalSpecs {
+		switch spec.SpecName {
+		case "chain":
+			result.Chain = spec.SpecValue
+		case "pay_contract":
+			result.PayContract = spec.SpecValue
+		case "pay_token":
+			result.PayToken = spec.SpecValue
+		}
+	}
+	if !result.IsValid() {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "invalid payroll settings"
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	res.Data = gin.H{
+		"payroll_settings": result,
+		"payroll_summary":  payroll,
 	}
 
 	c.JSON(http.StatusOK, res)
