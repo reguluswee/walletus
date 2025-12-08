@@ -168,7 +168,10 @@ func init() {
 			err = godotenv.Load(confFilePath + "/.env")
 		}
 		if err != nil {
-			log.Fatal("Error loading .env file")
+			err = godotenv.Load(".env")
+			if err != nil {
+				log.Fatal("Error loading .env file")
+			}
 		}
 	}
 
