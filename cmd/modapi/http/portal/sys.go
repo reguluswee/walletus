@@ -70,6 +70,9 @@ func PortalPayrollSettings(c *gin.Context) {
 			"usdt": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
 			"usdc": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
 		},
+		"BSC_TESTNET": map[string]string{
+			"usdt": "0x66E972502A34A625828C544a1914E8D8cc2A9dE5",
+		},
 	}
 	res.Data = gin.H{
 		"payroll_settings": result,

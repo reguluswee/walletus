@@ -597,7 +597,7 @@ func PortalPayrollCreate(c *gin.Context) {
 	db := system.GetDb()
 
 	newPayroll := model.PortalPayroll{
-		RollMonth:   request.RollMonth,
+		RollMonth:   formatPayrollMonth(request.RollMonth),
 		TotalAmount: request.TotalAmount,
 		Flag:        0,
 		CreatorID:   portalUser.ID,
@@ -1144,9 +1144,13 @@ func PortalPayrollPayConfig(c *gin.Context) {
 		c.JSON(http.StatusOK, res)
 		return
 	}
+
+	var payslips []model.PortalPayslip
+	db.Where("payroll_id = ?", payroll.ID).Find(&payslips)
 	res.Data = gin.H{
 		"payroll_settings": result,
 		"payroll_summary":  payroll,
+		"payslips":         payslips,
 	}
 
 	c.JSON(http.StatusOK, res)
@@ -1463,4 +1467,12 @@ func isValidYearMonth(s string) bool {
 	}
 
 	return t.Format("2006-01") == s
+}
+
+func formatPayrollMonth(s string) string {
+	t, err := time.Parse("2006-01", s)
+	if err != nil {
+		return ""
+	}
+	return t.Format("200601")
 }
