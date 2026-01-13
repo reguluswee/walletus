@@ -45,6 +45,7 @@ func SubRouters(e *gin.RouterGroup) {
 	adminGroup.POST("/portal/user/update", portal.PortalUserUpdate)
 	adminGroup.POST("/portal/user/add", portal.PortalUserAdd)
 	adminGroup.POST("/portal/user/delete/:user_id", portal.PortalUserDelete)
+	adminGroup.POST("/portal/user/password/reset", portal.PortalUserPasswordReset)
 
 	adminGroup.GET("/portal/payroll/list", portal.PortalPayrollList)
 	adminGroup.POST("/portal/payroll/create", portal.PortalPayrollCreate)

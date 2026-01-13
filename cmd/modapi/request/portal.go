@@ -35,6 +35,11 @@ type PortalUserUpdateRequest struct {
 	DeptIDs  []uint64 `json:"dept_ids"`
 }
 
+type PortalUserPasswordResetRequest struct {
+	ID       uint64 `json:"id" binding:"required"`
+	Password string `json:"password"`
+}
+
 type PortalRoleCreateRequest struct {
 	ID   uint64 `json:"id"`
 	Name string `json:"name" binding:"required"`

@@ -558,6 +558,41 @@ func PortalPayrollList(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+func PortalUserPasswordReset(c *gin.Context) {
+	var req request.PortalUserPasswordResetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, common.Response{
+			Code:      codes.CODE_ERR_REQFORMAT,
+			Msg:       "invalid request: " + err.Error(),
+			Data:      nil,
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+	res := common.Response{}
+	res.Timestamp = time.Now().Unix()
+
+	db := system.GetDb()
+	var user model.PortalUser
+	if err := db.First(&user, req.ID).Error; err != nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to find user: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+	user.Password = req.Password
+	if err := db.Save(&user).Error; err != nil {
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to update user: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	res.Code = codes.CODE_SUCCESS
+	res.Msg = "success"
+	c.JSON(http.StatusOK, res)
+}
+
 func PortalPayrollCreate(c *gin.Context) {
 	var request request.PortalPayrollCreateRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
