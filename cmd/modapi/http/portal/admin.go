@@ -512,6 +512,14 @@ func PortalUserDelete(c *gin.Context) {
 		return
 	}
 
+	if err := tx.Where("user_id = ?", user.ID).Delete(&model.PortalUserWallet{}).Error; err != nil {
+		tx.Rollback()
+		res.Code = codes.CODE_ERR_STATUS_GENERAL
+		res.Msg = "failed to delete user wallet: " + err.Error()
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
 	tx.Commit()
 
 	res.Code = codes.CODE_SUCCESS
@@ -1561,6 +1569,13 @@ func PortalPayrollStatusCheck(c *gin.Context) {
 			res.Code = codes.CODE_ERR_UNKNOWN
 			res.Msg = "db error:" + err.Error()
 		}
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	if payroll.Status == "paid" {
+		res.Code = codes.CODE_SUCCESS
+		res.Msg = "payroll status is paid"
 		c.JSON(http.StatusOK, res)
 		return
 	}
