@@ -20,6 +20,12 @@ chain:
     slotParallel: 1
     txDetal: 200
     rangeRound: 200
+  - name: ARB
+    queryRpc:
+      - https://go.getblock.io/e540801fc8084c1a9ce7cda0d434b2b7
+    slotParallel: 1
+    txDetal: 200
+    rangeRound: 200
   - name: TRON
     wsRpc: 
     queryRpc:

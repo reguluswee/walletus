@@ -35,6 +35,9 @@ func SupportChains() []dep.ChainDef {
 }
 
 func CheckValidChainCode(chainCode string) (dep.ChainDef, error) {
+	if chainCode == "arbitrum" {
+		chainCode = "ARB"
+	}
 	for _, v := range chains {
 		if chainCode == v.Name {
 			return v, nil
