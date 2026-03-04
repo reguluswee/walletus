@@ -655,7 +655,7 @@ func PortalPayrollCreate(c *gin.Context) {
 		var existingPayroll model.PortalPayroll
 		result := tx.
 			Where("roll_month = ?", request.RollMonth).
-			Where("status <> ?", "rejected").
+			Where("status NOT IN ?", []string{"rejected", "paid"}).
 			First(&existingPayroll)
 		if result.Error == nil {
 			return fmt.Errorf("payroll for month %s already exists and is not in 'rejected' status (ID: %d)",
